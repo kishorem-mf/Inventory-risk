@@ -1,0 +1,18 @@
+---
+applications:
+- name: memory_retention_flow
+  random-route: true
+  path: ./
+  memory: 1024M
+  disk_quota: 2048M
+  buildpacks: 
+  - python_buildpack
+  command: gunicorn main:app --bind 0.0.0.0:${PORT:-8080}
+  
+
+  env:
+    AICORE_AUTH_URL: "https://btp-ai-developments-sl2f9ys4.authentication.eu10.hana.ondemand.com"
+    AICORE_CLIENT_ID: "sb-38176009-b499-470f-a3b8-9cf98daac1d0!b503699|aicore!b540"
+    AICORE_CLIENT_SECRET: "1ac5c77f-d5ac-4e2d-8c19-6ffc47113ec8$52U4q9NYAN-GBm23a2lm_SFVrzmWNhuS7l_qFXs4s4A="
+    AICORE_RESOURCE_GROUP: "default"
+    AICORE_BASE_URL: "https://api.ai.prod.eu-central-1.aws.ml.hana.ondemand.com"

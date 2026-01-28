@@ -1,0 +1,11 @@
+---
+applications:
+- name: userregistration
+  random-route: true
+  path: ./
+  memory: 1024M
+  buildpacks:
+  - python_buildpack
+  command: python server.py
+  services:
+  - gen-ai-xsuaa-service

@@ -1,0 +1,11 @@
+Product ID*,Source ID*,Component Coefficient,Component Offset,Is Substitute Component,Mand Atrr Production Source Item,Minimum shelf life value for com,Source Item ID,TS Component Coefficient Ind
+RM-100-001,PL1000_SFG100-001_PV1,5,,,,,,
+RM-100-001,PL2000_SFG100-001_PV1,5,,,,,,
+RM-200-001,PL1000_SFG100-001_PV1,10,,,,,,
+RM-200-001,PL2000_SFG100-001_PV1,10,,,,,,
+RM-401,PL1000_FG400_001_PV1,1,,,,,,
+RM-402,PL1000_FG400_001_PV1,2,,,,,,
+SFG-100-001,PL1000_FG100-001_PV1,1,,,,,,
+SFG-100-001,PL1000_FG200-001_PV1,1,,,,,,
+SFG-100-001,PL2000_FG100-001_PV1,1,,,,,,
+SFG-100-001,PL2000_FG200-001_PV1,1,,,,,,

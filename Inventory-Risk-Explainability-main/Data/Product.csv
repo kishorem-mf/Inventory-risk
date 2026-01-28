@@ -1,0 +1,11 @@
+Product ID*,ABC Code,ABC Desc,ABC Locked,Base UOM Desc2,Base UOM2,Brand2,Category2,Item Type Category Indicator,Material Type ID,PLM Status,Product Desc,Product Family2,Product Group2,Product Series,Product Sub-Family2,Quick Turn Market Available,Time Series Property,Time Series Property - Product L,XYZ Code,XYZ Desc,XYZ Locked,ZTESTTIMESTAMP
+FG-100-001,,,,,EA,,,,FERT,,FG 100 001,,,,,,,,,,,
+FG-200-001,,,,,EA,,,,FERT,,FG 200 001,,,,,,,,,,,
+FG-300-001,,,,,EA,,,,FERT,,FG 300 001,,,,,,,,,,,
+FG-400-001,,,,,EA,,,,FERT,,FG 400 001,,,,,,,,,,,
+RM-100-001,,,,,EA,,,,ROH,,Raw Material 1,,,,,,,,,,,
+RM-200-001,,,,,EA,,,,ROH,,Raw Material 2,,,,,,,,,,,
+RM-401,,,,,EA,,,,ROH,,RM 401,,,,,,,,,,,
+RM-402,,,,,EA,,,,ROH,,RM 402,,,,,,,,,,,
+SFG-100-001,,,,,EA,,,,HALB,,Semi Finish Good 1,,,,,,,,,,,
+SFG-200-001,,,,,EA,,,,HALB,,Semi Finish Good 2,,,,,,,,,,,

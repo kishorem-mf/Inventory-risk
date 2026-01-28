@@ -1,0 +1,8 @@
+Customer ID*,Location ID*,Product ID*,Customer Source Balance Receipt,Customer Source Invalid,Customer Source Supply Priority,Customer Sourcing Ratio,Customer Transportation LeadTime,Forecast Consumption Mode,Lot-Size Round Val for Cust Rcpt,Mandatory Attribute Source Custo,Threshold Rounding Cust Source,Time Series Property,TS Transportation Sourcing Ind
+CUST-1000,DC1000,FG-100-001,,,,1,0,105,,,,,
+CUST-1000,DC1000,FG-200-001,,,,1,0,105,,,,,
+CUST-1000,DC1000,FG-300-001,,,,1,0,105,,,,,
+CUST-1000,DC1000,FG-400-001,,,,1,,105,,,,,
+CUST-2000,DC2000,FG-100-001,,,,1,0,105,,,,,
+CUST-2000,DC2000,FG-200-001,,,,1,0,105,,,,,
+CUST-2000,DC2000,FG-400-001,,,,1,,105,,,,,

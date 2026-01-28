@@ -1,0 +1,194 @@
+Terminologies Details -
+1. Terms-
+- Key Figure: A named metric (for example, “Consensus Demand”, “Stock on Hand”, or “Capacity Utilization”) that tells you which supply‑chain KPI is being measured.
+- Bucketed Weeks (WXX YYYY): Columns like “W22 2025” represent the value of a Key Figure in that calendar week.
+- Projected Stock vs. Inventory Target vs. Safety Stock:Inventory Target is the desired stock level at a location. Safety Stock is the buffer to cover demand/supply variability.Projected Stock forecasts future on‑hand levels after planned receipts and issues.
+- Dependent Demand: Demand for a component or raw material that is directly derived from higher‑level production plans (i.e. the bill‑of‑materials requirements).
+- Production Freeze Horizon: A number of days before which planners are not allowed to adjust manufacturing orders, ensuring stability in the shop‑floor schedule. First 3 weeks of the data is considered frozen weeks
+- Transport Lot Size & Lead Time: The minimum batch you must ship (lot size) and how many weeks it takes (lead time) to move from one location to another.
+
+2. Understock/Overstock 
+- Plant, Regional Distribution Center (RDC) and Distribution Center (DC) are the location where product is to be checked for understock and overstock inventory.
+- More than 3 consecutive weeks of understock or overstock is considered as an instance of understock or overstock product at any given location.
+- Overstock week is when Projected stock for that week is greater than Safety Stock and Understock is when Projected stock for that week is greater than Safety Stock.
+
+
+
+Master Table:
+A static reference table containing core product-related information.
+
+1. Product
+Captures detailed information about each product. Product types include:
+FG – Finished Goods
+RM – Raw Materials
+SFG – Semi-Finished Goods
+columns: 
+    Version: Record version label (e.g., Base Version)
+    Product ID: Unique product identifier (e.g., FG-100-001)
+    Base UOM: Base unit of measure (e.g., EA for Each)
+    Material Type ID: Material classification code (FERT, ROH, HALB)
+    Product Desc: Descriptive name for the product
+
+2. Location
+Stores data about various supply chain locations, categorized as follows:
+PL / P – Plant
+DC – Distribution Center
+RDC – Regional Distribution Center
+VEN / V – Vendor
+
+3. Location-Product 
+Maps which products are handled at which locations. Specificed products maybe produced at or trasnported to that location as coonected which is outligned in location source.,
+columns: 
+    Location ID: Location code (e.g., DC1000)
+    Product ID: Product code available at the location
+    Subnetwork ID: Identifier for the operational subnetwork (e.g., ELECTROLUX)
+
+
+4. Location Source
+Defines transportation rules (lot sizes, ratios, lead times) between locations for each product. Describes transportation between two nodes i.e. Ship-From Loc ID to Location ID for a specific product.
+columns: 
+    Location ID: Target location code (e.g., DC1000)
+    Product ID: Product code  (e.g., FG-100-001)
+    Ship-From Loc ID: Origin or Source location for shipments (e.g., RDC1000)
+    Incremental Transportation Lot Size: Shipment batch size increment (e.g., 250)
+    Location Transport Ratio: Volume adjustment ratio per shipment (e.g., 1.00)
+    Minimum Transportation Lot Size: Minimum allowed shipment size (e.g., 1000)
+    Transportation Lead Time: Transit time in weeks between ship-from and receiving location
+
+5. Production Source Header
+Configuration of production sources for different product as per plant. Lists unique Source identifier which produces goods through manufacturing unqiue for every plant.,
+columns: 
+    Location ID: Location where Product gets produced(e.g., PL1000)
+    Product ID: Product produced at this source (e.g., FG-100-001)
+    Source ID: Unique identifier for this production variant which produces the product
+    Output Product Coefficient: Units of output per process cycle
+    Production Freeze Horizon in Days: Days before which production changes are locked
+    Production Ratio: Proportional factor in planning calculations
+    Production Rounding Value: Rounding rule value for production output
+    Production Source Type Indicator: Indicator of source type (e.g., 'P')
+
+
+6. Production Source Resource
+Assignment of resources to plants with capacity indicators and constraint types
+    columns: 
+      Location ID: Plant code (e.g., PL1000)
+      Resource ID: Resource identifier (e.g., RES1000_001)
+      Capacity Supply Expansion Time Series Indicator: Flag if expanded capacity time series is active (X)
+      Capacity Supply Time Series Indicator: Flag if base capacity time series is active (X)
+      Constraint Type: Type of capacity constraint (e.g., 'F' for finite)
+      Resource Type: Category or numeric code for the resource type
+    
+
+7. Production Source Item
+Describes the bill of materials (BOM) for production, listing the raw materials (RM) and semi-finished goods (SFG) required to produce a finished good (FG).
+
+8. customer_source
+Captures detailed information about each customer
+
+Note:
+SFG refers to intermediate products created from raw materials (RM).
+The production flow typically follows this sequence: RM → SFG → FG
+
+The supply chain flow is as follows
+Product is produced as Plant. From plant it goes to RDC , then to DC and then finally reaches to customer
+There is lead time associated with transportation of product from one location to another.
+
+stock_status_v2 being the primary instance detection table, its details are:
+- Column Name (Data Type): column description
+- product_id(varchar): Unique identifier of the product (e.g., FG-100-001, FG-200-001).
+- location_id(varchar): Identifier of the distribution center (e.g., DC1000, RDC1000).
+- week_num(integer): An integer (1-52) representing the ISO week number of the year.
+- week_end_date (date): Date (ISO format) representing the last day (typically Sunday) of the given week_num and year.
+- quarter (varchar): Calendar quarter (e.g., Q1, Q2) corresponding to the week_end_date.
+- month (varchar): Full month name (e.g., January, February) derived from the week_end_date.
+- year (integer): Four-digit calendar year associated with the week_num.
+- stock_condition (varchar): Indicates the comparison between projected_stock and safety_stock.
+Values:
+excess: when projected_stock > safety_stock
+deficit: when projected_stock < safety_stock
+in-stock: when projected_stock == safety_stock
+- stock_status_warning (varchar): Alerts when 4 or more consecutive weeks of excess or deficit are detected for a given product_id, location_id, and location_type.
+Values:
+normal: No warning condition detected
+overstock_instance_N: Nth occurrence of a prolonged excess stock condition
+understock_instance_N: Nth occurrence of a prolonged deficit stock condition
+In response, keep in mind to mention Nth occurrence of condition only once
+While responding with instance occurrence, don't mention instances verbatim (like overstock_instance_1) , mention it in more natural language format.
+- transportation_lead_time(integer): time (in weeks) required for traversal of a product from RDC to the DC
+- minimum_transportation(integer): minimum number of units that can be transported to the current location
+- incremental_transportation(integer): additional minimum incremental units that can be added to minimum transportation unit to transport more units to the current location
+- production_lead_time(integer): time (in weeks) required for the production of the good
+- offset_stock(integer): difference between projected stock and safety stock that signifies amount of stock at the end of the week
+- lag_1_dependent_demand: These are dependent demand value predicted a week prior to current prediction data
+- ven_300_001_maximum_external_receipt: the unit of supply by provided by Vendor 'VEN-300-001'. This vendor specifically supplies for product 'FG-300-001'.
+
+Transactional data: contains weekly inventory and demand forecast at every level (DC, RDC, plant). 
+1.	Demand fulfillment : tracks planned versus actual customer demand and fulfillment metrics by product and customer group on a weekly basis.
+Columns included:
+Product ID: A unique identifier of the finished-goods product (e.g., FG-100-001).
+Customer ID: The identifier for the customer or customer group (e.g., Customer Group 1000).
+Key Figure: The type of metric being measured, which can include:
+    Consensus Demand: Forecasted demand that is expected to be fulfilled.
+    Customer Receipts: Confirmed quantity to be shipped to customers.
+    Customer Demand Delivered Late: Quantity of demand shipped after the expected date.
+    Demand Fulfillment %: The percentage of total demand that was successfully fulfilled.
+
+2.	Review DC: Contains inventory and flow metrics for each distribution center (DC) by product and week.
+Columns include:
+Product ID: Finished-goods product identifier (e.g., FG-100-001).
+Location ID: Distribution center code (e.g., DC1000).
+Key Figure: Metric type, which can be:
+Dependent Demand – Demand from customer or connected DC.
+Stock on Hand – Inventory currently available at the DC.
+Incoming Transport Receipts – Confirmed inbound supply received.
+Outgoing Supply – Outbound supply shipped from the DC.
+Safety Stock (SOP) – Planned minimum stock to maintain.
+Inventory Target – Targeted stock level for that week.
+Projected Stock – Expected stock after netting receipts and issues.
+
+3.	Review Plant: Captures production-related metrics at each plant for finished goods on a weekly basis.
+Columns include:
+Product ID: Finished-goods product identifier (e.g., FG-100-001).
+Location ID: Plant location code (e.g., PL1000).
+Key Figure: Production metric type, which can be:
+Dependent Demand – Demand from connected DC or regional DC.
+Stock on Hand – Inventory currently available at the plant.
+Planned Production Receipts – Planned production quantity.
+Incoming Production Receipts – Confirmed inbound receipts at the plant.
+Confirmed Production Receipts – Confirmed production quantities; within the freeze horizon, this is the fixed producible quantity.
+Outgoing Supply – Planned or confirmed outbound shipments from the plant.
+Safety Stock (SOP) – Planned buffer stock.
+Inventory Target – Targeted stock level.
+Projected Stock – Expected stock after receipts and issues.
+
+4.	Review Vendor: Tracks raw-material flows from vendors into the network (plants and DCs) on a weekly basis.
+Columns include:
+Product ID: Raw-material code (e.g., RM-1000).
+Location ID: Vendor code or receiving location (e.g., VEN1000).
+Ship-To Location ID: Destination location for shipments (e.g., PL1000).
+Key Figure: Metric type, which can be:
+Dependent Demand – Demand received from downstream nodes.
+Stock on Hand – Current inventory at the vendor.
+Outgoing Transport Supply – Raw-material quantity shipped from the vendor.
+
+5.	Review Capacity: Monitors production resource capacity, utilization, and usage by product at each plant.
+Columns include:
+Location ID: Plant code where the resource resides (e.g., PL1000).
+Resource ID: Identifier for the resource (e.g., RES1000_001).
+Source ID: Context identifier, such as a production variant.
+Product ID: Finished product measured against resource capacity (e.g., FG-100-001).
+Key Figure: Capacity metric type, which can be:
+Capacity Supply – Planned available capacity.
+Capacity Utilization – Percentage of capacity used.
+Capacity Usage of Production Resource – Actual resource usage.
+
+6.	Review Component: Details weekly demand, receipts, and projected stock for raw-material components at plants.
+Columns include:
+Product ID: Raw-material component code (e.g., RM-1000).
+Location ID: Plant code consuming the component (e.g., PL1000).
+Key Figure: Metric type, which can be:
+Dependent Demand – Demand derived from higher-level plans.
+Incoming Transport Receipts – Material receipts from vendors.
+Projected Stock – Expected stock level after inflows and outflows.
+Safety Stock (SOP) – Planned buffer stock.
+Inventory Target – Targeted stock level for that week.

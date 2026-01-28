@@ -1,0 +1,210 @@
+# Master Whitepaper: Inventory Imbalance Scenarios in Supply Chain  
+
+## Context  
+Inventory imbalances in supply chains can manifest as **understock (shortages)** or **overstock (excess inventory)**.  
+- **Understock** → Projected stock falls below safety stock or negative, leading to potential stockouts and service-level issues.  
+- **Overstock** → Projected stock consistently above inventory targets, causing high carrying costs, working capital lock-in, and obsolescence risk.  
+
+Both conditions can arise from **supply, demand, logistics, production, or planning inaccuracies**.  
+This whitepaper provides a comprehensive catalog of scenarios with tags to help LLMs classify and explain reasons.  
+
+---
+
+## 🔻 Understock Scenarios  
+
+### 1. **Demand Spike Beyond Forecast**
+- **Description:** Actual demand far exceeded forecasted dependent demand, exhausting inventory faster than replenishment.  
+- **Tag:** `Understock | Demand Spike | Forecast Error`
+
+### 2. **Supplier Delay**
+- **Description:** Supplier shipments delayed due to vendor-side capacity issues, logistics disruption, or raw material unavailability.  
+- **Tag:** `Understock | Supplier Delay | External Risk`
+
+### 3. **Transportation Delay**
+- **Description:** Stock transfer orders (STOs) or purchase orders (POs) delayed in transit due to lead time variability, customs, or logistics bottlenecks.  
+- **Tag:** `Understock | Transport Delay | Execution Gap`
+
+### 4. **Production Delay**
+- **Description:** Planned production not completed on time due to machine breakdown, labor shortage, or scheduling issues.  
+- **Tag:** `Understock | Production Delay | Capacity Constraint`
+
+### 5. **Raw Material Shortage**
+- **Description:** Key raw materials unavailable at the plant, preventing finished goods production.  
+- **Tag:** `Understock | Raw Material Shortage | Upstream Dependency`
+
+### 6. **Capacity Constraint**
+- **Description:** Resource capacity (machines/labor) insufficient to meet the required production volume within the horizon.  
+- **Tag:** `Understock | Capacity Constraint | Resource Bottleneck`
+
+### 7. **Long Transportation Lead Time**
+- **Description:** Extended transportation lead time between RDC and DC results in projected stock going negative before receipts arrive.  
+- **Tag:** `Understock | Long Lead Time | Transport Constraint`
+
+### 8. **Long Production Lead Time**
+- **Description:** Extended production lead time prevents timely replenishment at the plant, causing projected stock shortages.  
+- **Tag:** `Understock | Long Lead Time | Production Constraint`
+
+### 9. **Network Imbalance**
+- **Description:** Stock available upstream but not transferred downstream due to allocation or transport restriction.  
+- **Tag:** `Understock | Network Imbalance | Allocation Issue`
+
+### 10. **Frozen Horizon Constraint**
+- **Description:** Production or procurement could not be adjusted in the frozen horizon window, leading to temporary shortages.  
+- **Tag:** `Understock | Frozen Horizon | Planning Rigidity`
+
+### 11. **Unplanned Outgoing Supply**
+- **Description:** Unexpected customer orders or urgent STOs consumed inventory beyond planned levels.  
+- **Tag:** `Understock | Unplanned Outgoing | Sudden Demand`
+
+### 12. **Quality Rejections**
+- **Description:** Receipts were rejected or blocked due to quality issues, leaving insufficient usable stock.  
+- **Tag:** `Understock | Quality Rejection | Operational Issue`
+
+### 13. **Forecast Underestimation**
+- **Description:** Forecasted demand was lower than actual, leading to stockouts as receipts were not aligned with reality.  
+- **Tag:** `Understock | Forecast Underestimation | Planning Error`
+
+### 14. **Inventory Target Misalignment**
+- **Description:** Inventory target not updated for rising demand, causing projected stock to fall short.  
+- **Tag:** `Understock | Target Misalignment | SOP Gap`
+
+### 15. **Lag Week Plan Mismatch – Demand Spike**
+- **Description:** Previous week’s plan underestimated dependent demand; current week shows spike, but supply already locked.  
+- **Tag:** `Understock | Lag Plan Comparison | Demand Spike`
+
+### 16. **Lag Week Plan Mismatch – PO/STO Delay**
+- **Description:** Previous week’s plan expected POs/STOs to arrive, but delays occurred, leaving stock negative.  
+- **Tag:** `Understock | Lag Plan Comparison | PO/STO Delay`
+
+### 17. **Lag Week Plan Mismatch – Production Delay**
+- **Description:** Previous plan assumed timely production order completion; delays caused current shortage.  
+- **Tag:** `Understock | Lag Plan Comparison | Production Delay`
+
+### 18. **Lag Week Plan Mismatch – Raw Material Shortage**
+- **Description:** Previous plan assumed sufficient raw materials; shortages in current week stopped production.  
+- **Tag:** `Understock | Lag Plan Comparison | Raw Material Shortage`
+
+### 19. **Maximum External Receipt Constraint**
+- **Description:** Supplier/vendor limited receipt quantity below dependent demand, creating shortages.  
+- **Tag:** `Understock | Receipt Constraint | Supplier Limit`
+
+---
+
+## 🔺 Overstock Scenarios  
+
+### 1. **Over-ordering by Planner**
+- **Description:** Too many POs/STOs raised compared to actual demand, resulting in surplus.  
+- **Tag:** `Overstock | Planner Over-ordering | Human Error`
+
+### 2. **Supplier Ships Early**
+- **Description:** Incoming receipts posted earlier than required, creating excess before demand materializes.  
+- **Tag:** `Overstock | Early Shipment | Supplier Action`
+
+### 3. **Duplicate Orders**
+- **Description:** Same demand covered by multiple orders, leading to duplicate receipts.  
+- **Tag:** `Overstock | Duplicate Orders | Process Error`
+
+### 4. **Larger Lot Size – Rounding Value**
+- **Description:** Rounding in transport planning caused higher receipts than demand.  
+- **Tag:** `Overstock | Lot Size | Rounding Constraint`
+
+### 5. **Larger Lot Size – Min Transportation Lot Size**
+- **Description:** Receipts only possible in big transportation lots, oversupplying relative to demand.  
+- **Tag:** `Overstock | Lot Size | Transport Constraint`
+
+### 6. **Production Overshoot**
+- **Description:** Plant produced more than planned due to efficiency gains or extra batch runs.  
+- **Tag:** `Overstock | Production Overshoot | Execution Variance`
+
+### 7. **Supplier MOQ (Minimum Order Quantity)**
+- **Description:** Supplier only delivers in large lots, oversupplying relative to demand.  
+- **Tag:** `Overstock | MOQ Constraint | Supplier Policy`
+
+### 8. **Shortened Lead Time**
+- **Description:** Deliveries arrived earlier than planned, bunching receipts.  
+- **Tag:** `Overstock | Shorter Lead Time | Transport Variability`
+
+### 9. **Demand Forecast Drop**
+- **Description:** Forecast revised downward, but inventory already procured.  
+- **Tag:** `Overstock | Forecast Drop | Planning Error`
+
+### 10. **Customer Order Cancellation**
+- **Description:** Planned demand disappeared, leaving stock unused.  
+- **Tag:** `Overstock | Order Cancellation | Demand Variance`
+
+### 11. **Seasonal Demand Ends**
+- **Description:** Stock built for a season but demand curve fell sharply.  
+- **Tag:** `Overstock | Seasonal Demand End | Market Variability`
+
+### 12. **Market Shift**
+- **Description:** Competitor launch reduced actual demand.  
+- **Tag:** `Overstock | Market Shift | External Factor`
+
+### 13. **Dependent Demand Reduction**
+- **Description:** Overproduced components due to incorrect FG demand.  
+- **Tag:** `Overstock | Dependent Demand Drop | Planning Error`
+
+### 14. **Customer Returns**
+- **Description:** Inflow of returned goods unexpectedly increased stock.  
+- **Tag:** `Overstock | Customer Returns | Reverse Flow`
+
+### 15. **Reverse Logistics from Channel**
+- **Description:** DC received unsold goods back from retailers.  
+- **Tag:** `Overstock | Reverse Logistics | Market Return`
+
+### 16. **Inter-DC Transfers**
+- **Description:** Stock redirected from other DCs despite sufficient local stock.  
+- **Tag:** `Overstock | Inter-DC Transfer | Allocation Error`
+
+### 17. **Inbound Shipment Duplication**
+- **Description:** Two shipments posted against the same PO.  
+- **Tag:** `Overstock | Inbound Duplication | Process Error`
+
+### 18. **Frozen Horizon Planning Issue**
+- **Description:** Orders in frozen horizon couldn’t be adjusted down after forecast reduced.  
+- **Tag:** `Overstock | Frozen Horizon | Planning Rigidity`
+
+### 19. **Production Prebuild**
+- **Description:** Capacity not available during demand weeks, so production prebuilt in earlier periods.  
+- **Tag:** `Overstock | Production Prebuild | Capacity Constraint`
+
+### 20. **Inaccurate Master Data**
+- **Description:** Wrong lead times/lot sizes led to excess replenishment.  
+- **Tag:** `Overstock | Master Data Error | Data Quality`
+
+### 21. **Planned Safety Stock Reallocation**
+- **Description:** Stock meant for another location remained locally, inflating inventory.  
+- **Tag:** `Overstock | Safety Stock Reallocation | Allocation Issue`
+
+### 22. **Bullwhip Effect**
+- **Description:** Small forecast changes amplified upstream, causing supplier oversupply.  
+- **Tag:** `Overstock | Bullwhip Effect | Forecast Variance`
+
+### 23. **Delayed Demand Fulfillment at Another Node**
+- **Description:** Stock stuck at wrong node while demand exists elsewhere.  
+- **Tag:** `Overstock | Node Imbalance | Network Issue`
+
+### 24. **Obsolete or Slow-Moving Inventory**
+- **Description:** Stock accumulated for obsolete products or SKUs with slow movement.  
+- **Tag:** `Overstock | Obsolescence | Lifecycle Issue`
+
+### 25. **Lag Week Plan Mismatch – Overforecasting Demand**
+- **Description:** Previous week’s plan expected higher demand; current plan shows drop, leaving excess stock.  
+- **Tag:** `Overstock | Lag Plan Comparison | Overforecast`
+
+### 26. **Long Transportation Lead Time with High SOH**
+- **Description:** Longer RDC → DC lead time caused higher buffer stock.  
+- **Tag:** `Overstock | Long Lead Time | Transport Constraint`
+
+### 27. **Long Production Lead Time with High SOH**
+- **Description:** Longer production lead time required holding more stock at DC.  
+- **Tag:** `Overstock | Long Lead Time | Production Constraint`
+
+---
+
+## Key Observations  
+- **Understock drivers:** Demand spikes, supply/transport delays, production bottlenecks, lag week mismatches, capacity shortages.  
+- **Overstock drivers:** Over-ordering, early/duplicate receipts, large lot sizes, forecast drops, long lead times with buffers, lag week overforecasting.  
+- **Lag Week Impact:** Previous plan mismatches (forecast changes, PO/production delays, over/under forecasting) play a significant role in both understock and overstock.  
+
+---

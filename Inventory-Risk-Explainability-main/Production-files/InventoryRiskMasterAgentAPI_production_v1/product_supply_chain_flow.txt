@@ -1,0 +1,74 @@
+- **Product: FG-100-001**
+  - The product is produced at plant PL1000. Product is finished.
+  - Plant name: PL1000
+  - Supply chain flow:
+    - Produced at PL1000 with a production lead time of 1 week.
+    - Shipped from PL1000 to RDC1000 with a transportation lead time of 1 week.
+    - Minimum transportation lot size: 1000 units, Incremental lot size: 500 units.
+    - Shipped from RDC1000 to DC1000 with a transportation lead time of 6 weeks.
+    - Minimum transportation lot size: 500 units, Incremental lot size: 250 units.
+    - Delivered to customer CUST-1000 at DC1000.
+
+- **Product: FG-200-001**
+  - The product is produced at plant PL1000. Product is finished.
+  - Plant name: PL1000
+  - Supply chain flow:
+    - Produced at PL1000 with a production lead time of 6 weeks.
+    - Shipped from PL2000 to RDC1000 with a transportation lead time of 1 week.
+    - Minimum transportation lot size: 1000 units, Incremental lot size: 500 units.
+    - Shipped from RDC1000 to DC1000 with a transportation lead time of 1 week.
+    - Minimum transportation lot size: 500 units, Incremental lot size: 250 units.
+    - Delivered to customer CUST-1000 at DC1000.
+
+- **Product: FG-300-001**
+  - The product is sourced from vendor VEN-300-001. Product is finished.
+  - Plant name: VEN-300-001
+  - Supply chain flow:
+    - Shipped from VEN-300-001 to DC1000 with a transportation lead time of 7 weeks.
+    - Delivered to customer CUST-1000 at DC1000.
+
+- **Product: FG-400-001**
+  - The product is produced at plant PL1000. Product is finished.
+  - Plant name: PL1000
+  - Supply chain flow:
+    - Produced at PL1000 with a production lead time of 6 weeks.
+    - Shipped from PL1000 to RDC1000 with a transportation lead time of 1 week.
+    - Shipped from RDC1000 to DC1000 with a transportation lead time of 1 week.
+    - Delivered to customer CUST-1000 at DC1000.
+
+- **Product: RM-100-001**
+  - The product is sourced from vendors VEN1000 and VEN2000. Product is raw material.
+  - Plant name: VEN1000, VEN2000
+  - Supply chain flow:
+    - Shipped from VEN1000 to PL1000 with a transportation lead time of 1 week.
+    - Minimum transportation lot size: 200 units, Incremental lot size: 100 units.
+    - Shipped from VEN2000 to PL1000 with a transportation lead time of 1 week.
+    - Minimum transportation lot size: 200 units, Incremental lot size: 100 units.
+
+- **Product: RM-200-001**
+  - The product is sourced from vendors VEN1000 and VEN2000. Product is raw material.
+  - Plant name: VEN1000, VEN2000
+  - Supply chain flow:
+    - Shipped from VEN1000 to PL1000 with a transportation lead time of 1 week.
+    - Minimum transportation lot size: 200 units, Incremental lot size: 100 units.
+    - Shipped from VEN2000 to PL1000 with a transportation lead time of 1 week.
+    - Minimum transportation lot size: 200 units, Incremental lot size: 100 units.
+
+- **Product: RM-401**
+  - The product is sourced from vendors VEN1000 and VEN2000. Product is raw material.
+  - Plant name: VEN1000, VEN2000
+  - Supply chain flow:
+    - Shipped from VEN1000 to PL1000 with a transportation lead time of 1 week.
+    - Shipped from VEN2000 to PL1000 with a transportation lead time of 1 week.
+
+- **Product: RM-402**
+  - The product is sourced from vendors VEN1000 and VEN2000. Product is raw material.
+  - Plant name: VEN1000, VEN2000
+  - Supply chain flow:
+    - Shipped from VEN1000 to PL1000 with a transportation lead time of 1 week.
+
+- **Product: SFG-100-001**
+  - The product is produced at plant PL1000. Product is semi-finished.
+  - Plant name: PL1000
+  - Supply chain flow:
+    - Produced at PL1000 with a production lead time of 0 weeks.

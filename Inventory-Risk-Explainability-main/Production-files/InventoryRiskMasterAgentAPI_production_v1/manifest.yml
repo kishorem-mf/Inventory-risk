@@ -1,0 +1,17 @@
+---
+applications:
+- name: InvRisk_master_agent_testing
+  random-route: true
+  path: ./
+  memory: 4G
+  timeout: 600
+  instances: 1
+  disk_quota: 4G
+  buildpacks: 
+  - python_buildpack
+  command: gunicorn --worker-class gevent --workers 1 --timeout 600 main:app
+  
+
+  # Environment variables should be set via cf set-env or user-provided services
+  # Required env vars: AICORE_AUTH_URL, AICORE_CLIENT_ID, AICORE_CLIENT_SECRET,
+  # AICORE_BASE_URL, AICORE_RESOURCE_GROUP, LANGSMITH_API_KEY, HANA_HOST, HANA_PASSWORD

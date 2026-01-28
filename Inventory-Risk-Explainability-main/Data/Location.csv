@@ -1,0 +1,9 @@
+Location ID*,Buffer profile set ID for creati,Geo Latitude,Geo Longitude,Holding Cost Percentage,Location,Location Business Partner ID,Location Priority,Location Region,Location Relevant for External R,Location Type,Location Valid,Plant Priority
+DC1000,,,,,DC 1000,,,,,P,,
+DC2000,,,,,DC 2000,,,,,P,,
+PL1000,,,,,PL 1000,,1,,,P,,
+PL2000,,,,,PL 2000,,2,,,P,,
+RDC1000,,,,,SCC 1000,,,,,P,,
+VEN-300-001,,,,,Vendor for FG 300,,,,,V,,
+VEN1000,,,,,VENDOR 1000,,,,,V,,
+VEN2000,,,,,VENDOR 2000,,,,,V,,

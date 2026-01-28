@@ -1,0 +1,356 @@
+CREATE TABLE "CURRENT_INVT".customer_source (
+	customer_id NVARCHAR(9), 
+	location_id NVARCHAR(6), 
+	product_id NVARCHAR(10), 
+	customer_source_balance_receipt DOUBLE, 
+	customer_source_invalid DOUBLE, 
+	customer_source_supply_priority DOUBLE, 
+	customer_sourcing_ratio INTEGER, 
+	customer_transportation_leadtime DOUBLE, 
+	forecast_consumption_mode INTEGER, 
+	lot_size_round_val_for_cust_rcpt DOUBLE, 
+	mandatory_attribute_source_custo DOUBLE, 
+	threshold_rounding_cust_source DOUBLE, 
+	time_series_property DOUBLE, 
+	ts_transportation_sourcing_ind DOUBLE
+)
+
+
+CREATE TABLE "CURRENT_INVT".location (
+	location_id NVARCHAR(11), 
+	buffer_profile_set_id_for_creati DOUBLE, 
+	geo_latitude DOUBLE, 
+	geo_longitude DOUBLE, 
+	holding_cost_percentage DOUBLE, 
+	location NVARCHAR(17), 
+	location_business_partner_id DOUBLE, 
+	location_priority DOUBLE, 
+	location_region DOUBLE, 
+	location_relevant_for_external_r DOUBLE, 
+	location_type NVARCHAR(1), 
+	location_valid DOUBLE, 
+	plant_priority DOUBLE
+)
+
+CREATE TABLE "CURRENT_INVT".location_product (
+	location_id NVARCHAR(11), 
+	product_id NVARCHAR(11), 
+	additional_order_spike_horizon DOUBLE, 
+	adu_calculation_future_horizon DOUBLE, 
+	adu_calculation_past_horizon DOUBLE, 
+	coefficient_of_variation_horizon DOUBLE, 
+	critical_operation_protection DOUBLE, 
+	ddmrp_adh DOUBLE, 
+	ddmrp_analytic_periods DOUBLE, 
+	ddmrp_lot_size_indicator DOUBLE, 
+	ddmrp_order_spike_threshold_pct DOUBLE, 
+	ddmrp_rounding_value DOUBLE, 
+	decouplepointinput DOUBLE, 
+	distribution_type_g_or_n DOUBLE, 
+	fair_share_horizon DOUBLE, 
+	footprint_per_unit_in_kg DOUBLE, 
+	forecast_consumption_mode DOUBLE, 
+	frozen_horizon DOUBLE, 
+	green_zone_calculation_type_indi DOUBLE, 
+	ignore_dependent_location_demand DOUBLE, 
+	ignore_dependent_prod_demand DOUBLE, 
+	ignore_prodn_dmd_in_safety_stock DOUBLE, 
+	ignore_tlane_dmd_in_safety_stock DOUBLE, 
+	inventory_consumption_group_desc DOUBLE, 
+	inventory_consumption_group_id DOUBLE, 
+	inventory_holding_fair_share_cos DOUBLE, 
+	inventory_holding_policy DOUBLE, 
+	inventory_target_violation_fair DOUBLE, 
+	io_maximum_safety_days DOUBLE, 
+	io_minimum_safety_days DOUBLE, 
+	io_network_id DOUBLE, 
+	item_type_category_indicator_ove DOUBLE, 
+	lead_time_category_indicator DOUBLE, 
+	lead_time_category_indicator_ove DOUBLE, 
+	lot_sizing_procedure DOUBLE, 
+	maximum_green_zone_quantity DOUBLE, 
+	maximum_internal_service_level DOUBLE, 
+	maximum_red_zone_quantity DOUBLE, 
+	minimum_green_zone_quantity DOUBLE, 
+	minimum_internal_service_level DOUBLE, 
+	minimum_red_zone_quantity DOUBLE, 
+	minimum_shelf_life_for_invtarget DOUBLE, 
+	minimum_shelf_life_value_for_ind DOUBLE, 
+	minimum_shelf_life_value_for_inv DOUBLE, 
+	moq DOUBLE, 
+	mrp_type_indicator DOUBLE, 
+	network_echelon_level DOUBLE, 
+	non_delivery_fair_share_cost_pol DOUBLE, 
+	number_of_periods_for_average_de DOUBLE, 
+	order_cycle DOUBLE, 
+	periods_between_replenishment DOUBLE, 
+	planner DOUBLE, 
+	reason_for_selection_as_decoupli DOUBLE, 
+	safety_stock DOUBLE, 
+	safety_stock_policy_indicator DOUBLE, 
+	service_level_type_indicator DOUBLE, 
+	stocking_node_type DOUBLE, 
+	subnetwork_id NVARCHAR(5), 
+	transport_substitution_policy DOUBLE, 
+	variability_category_indicator DOUBLE, 
+	variability_category_indicator_o DOUBLE
+)
+
+CREATE TABLE "CURRENT_INVT".location_source (
+	location_id NVARCHAR(7), 
+	product_id NVARCHAR(10), 
+	ship_from_loc_id NVARCHAR(11), 
+	footprint_supplier_per_unit_kg DOUBLE, 
+	inbound_calendar_id DOUBLE, 
+	incremental_transportation_lot_s DOUBLE, 
+	io_transportation_frozen_window DOUBLE, 
+	lead_time_transportation DOUBLE, 
+	lead_time_cv_transportation DOUBLE, 
+	location_source_invalid DOUBLE, 
+	location_source_supply_priority DOUBLE, 
+	location_transport_ratio INTEGER, 
+	mandatory_attribute_source_locat DOUBLE, 
+	maxmimum_transportation_lot_size DOUBLE, 
+	minimum_transportation_lot_size DOUBLE, 
+	threshold_rounding_loc_source DOUBLE, 
+	trans_capa_consumption_policy DOUBLE, 
+	transp_delivery_type_indicator DOUBLE, 
+	transp_shipment_frequency DOUBLE, 
+	transport_goods_receipt_calendar DOUBLE, 
+	transport_source_balance_receipt DOUBLE, 
+	transportation_calendar_id DOUBLE, 
+	transportation_freeze_horizon DOUBLE, 
+	transportation_goods_receipt DOUBLE, 
+	transportation_lead_time INTEGER, 
+	transportation_leadtime_error_cv DOUBLE, 
+	transportation_lot_size_periods DOUBLE, 
+	transportation_rounding_value DOUBLE, 
+	ts_transportation_sourcing_ind DOUBLE
+)
+
+CREATE TABLE "CURRENT_INVT".product (
+	product_id NVARCHAR(11), 
+	abc_code DOUBLE, 
+	abc_desc DOUBLE, 
+	abc_locked DOUBLE, 
+	base_uom_desc2 DOUBLE, 
+	base_uom2 NVARCHAR(2), 
+	brand2 DOUBLE, 
+	category2 DOUBLE, 
+	item_type_category_indicator DOUBLE, 
+	material_type_id NVARCHAR(4), 
+	plm_status DOUBLE, 
+	product_desc NVARCHAR(18), 
+	product_family2 DOUBLE, 
+	product_group2 DOUBLE, 
+	product_series DOUBLE, 
+	product_sub_family2 DOUBLE, 
+	quick_turn_market_available DOUBLE, 
+	time_series_property DOUBLE, 
+	time_series_property_product_l DOUBLE, 
+	xyz_code DOUBLE, 
+	xyz_desc DOUBLE, 
+	xyz_locked DOUBLE, 
+	ztesttimestamp DOUBLE
+)
+
+CREATE TABLE "CURRENT_INVT".production_source_header (
+	location_id NVARCHAR(6), 
+	product_id NVARCHAR(11), 
+	source_id NVARCHAR(21), 
+	capacity_consumption_policy DOUBLE, 
+	io_production_frozen_window DOUBLE, 
+	lead_time_production DOUBLE, 
+	lead_time_cv_production DOUBLE, 
+	mandatoryattribute_source_produc DOUBLE, 
+	maximum_production_lot_size DOUBLE, 
+	minimum_production_lot_size DOUBLE, 
+	output_product_coefficient INTEGER, 
+	production_calendar_id DOUBLE, 
+	production_delivery_type_ind DOUBLE, 
+	production_freeze_horizon_days DOUBLE, 
+	production_goods_receipt_time DOUBLE, 
+	production_goodsreceipt_calendar DOUBLE, 
+	production_incremental_lot_size DOUBLE, 
+	production_lead_time INTEGER, 
+	production_lead_time_cv DOUBLE, 
+	production_lot_size_periods DOUBLE, 
+	production_lot_size_coverage_of DOUBLE, 
+	production_ratio INTEGER, 
+	production_rounding_value DOUBLE, 
+	production_shipment_frequency DOUBLE, 
+	production_source_balance_receip DOUBLE, 
+	production_source_invalid DOUBLE, 
+	production_source_type_indicator NVARCHAR(1), 
+	remaining_shelf_life DOUBLE, 
+	threshold_value_for_lt_rounding DOUBLE, 
+	ts_output_coefficient_ind DOUBLE, 
+	ts_production_sourcing_ind DOUBLE
+)
+
+CREATE TABLE "CURRENT_INVT".production_source_item (
+	product_id NVARCHAR(11), 
+	source_id NVARCHAR(21), 
+	component_coefficient INTEGER, 
+	component_offset DOUBLE, 
+	is_substitute_component DOUBLE, 
+	mand_atrr_production_source_item DOUBLE, 
+	minimum_shelf_life_value_for_com DOUBLE, 
+	source_item_id DOUBLE, 
+	ts_component_coefficient_ind DOUBLE
+)
+
+
+CREATE TABLE "CURRENT_INVT".production_source_resource (
+	resource_id NVARCHAR(14), 
+	source_id NVARCHAR(20), 
+	capacity_consumption_rate DOUBLE, 
+	capacity_consumption_rate_time_s DOUBLE, 
+	end_period_of_capacity_consumpti DOUBLE, 
+	fixed_production_capaconsumption DOUBLE, 
+	is_alt_resource DOUBLE, 
+	mandatory_attribute_for_producti DOUBLE, 
+	start_period_of_capacity_consump DOUBLE
+)
+
+CREATE TABLE "CURRENT_INVT".cost (
+	location_id NVARCHAR(7), 
+	product_id NVARCHAR(11), 
+	customer_id NVARCHAR(9), 
+	ship_to_location_id NVARCHAR(7), 
+	source_id NVARCHAR(21), 
+	key_figure NVARCHAR(49), 
+	total DOUBLE, 
+	w30_2025 DOUBLE, 
+	...
+	w29_2026 DOUBLE
+)
+
+
+CREATE TABLE "CURRENT_INVT".demand_fulfillment (
+	product_id NVARCHAR(10), 
+	customer_id NVARCHAR(19), 
+	customer_priority INTEGER, 
+	key_figure NVARCHAR(41), 
+	total DOUBLE, 
+	w30_2025 DOUBLE, 
+	...
+	w29_2026 DOUBLE
+)
+
+CREATE TABLE "CURRENT_INVT".profit_margin (
+	product_id NVARCHAR(10), 
+	customer_id NVARCHAR(9), 
+	key_figure NVARCHAR(24), 
+	total DOUBLE, 
+	w30_2025 DOUBLE, 
+	...
+	w29_2026 DOUBLE
+)
+
+
+CREATE TABLE "CURRENT_INVT".review_capacity (
+	location_id NVARCHAR(6), 
+	resource_id NVARCHAR(14), 
+	source_id NVARCHAR(20), 
+	product_id NVARCHAR(10), 
+	key_figure NVARCHAR(37), 
+	total DOUBLE, 
+	w30_2025 DOUBLE, 
+	...
+	w29_2026 DOUBLE
+)
+
+
+CREATE TABLE "CURRENT_INVT".review_component (
+	product_id NVARCHAR(10), 
+	location_id NVARCHAR(6), 
+	key_figure NVARCHAR(28), 
+	total DOUBLE, 
+	w30_2025 DOUBLE, 
+	...
+	w29_2026 DOUBLE
+)
+
+
+
+CREATE TABLE "CURRENT_INVT".review_dc (
+	product_id NVARCHAR(10), 
+	location_id NVARCHAR(7), 
+	key_figure NVARCHAR(28), 
+	total DOUBLE, 
+	w30_2025 DOUBLE, 
+	...
+	w29_2026 DOUBLE
+)
+
+CREATE TABLE "CURRENT_INVT".lag_1_review_dc (
+	product_id NVARCHAR(10), 
+	location_id NVARCHAR(7), 
+	key_figure NVARCHAR(28), 
+	total DOUBLE, 
+	w29_2025 DOUBLE, 
+	...
+	w28_2026 DOUBLE
+)
+
+
+CREATE TABLE "CURRENT_INVT".review_plant (
+	product_id NVARCHAR(11), 
+	location_id NVARCHAR(6), 
+	key_figure NVARCHAR(28), 
+	total DOUBLE, 
+	w30_2025 DOUBLE, 
+	...
+	w29_2026 DOUBLE
+)
+
+CREATE TABLE "CURRENT_INVT".lag_1_review_plant (
+	product_id NVARCHAR(11), 
+	location_id NVARCHAR(6), 
+	key_figure NVARCHAR(28), 
+	total DOUBLE, 
+	w29_2025 DOUBLE, 
+	...
+	w28_2026 DOUBLE
+)
+
+CREATE TABLE "CURRENT_INVT".review_vendors (
+	product_id NVARCHAR(30), 
+	location_id NVARCHAR(30), 
+	ship_to_location_id NVARCHAR(30), 
+	key_figure NVARCHAR(30), 
+	total DOUBLE, 
+	w30_2025 DOUBLE, 
+	...
+	w29_2026 DOUBLE
+)
+
+CREATE TABLE "CURRENT_INVT".stock_status_v2 (
+	product_id NVARCHAR(30), 
+	location_id NVARCHAR(30), 
+	projected_stock DOUBLE, 
+	safety_stock DOUBLE, 
+	stock_on_hand DOUBLE, 
+	incoming_receipts DOUBLE, 
+	total_demand DOUBLE, 
+	outgoing_supply DOUBLE, 
+	supply_orders DOUBLE, 
+	location_type NVARCHAR(30), 
+	lag_1_dependent_demand DOUBLE, 
+	lag_1_supply_orders DOUBLE, 
+	lag_1_incoming_receipts DOUBLE, 
+	ven_300_001_maximum_external_receipt DOUBLE, 
+	week_num INTEGER, 
+	year INTEGER, 
+	week_end_date NVARCHAR(30), 
+	quarter NVARCHAR(30), 
+	month NVARCHAR(30), 
+	stock_condition NVARCHAR(30), 
+	stock_status_warning NVARCHAR(30), 
+	transporatation_lead_time DOUBLE, 
+	minimum_transportation DOUBLE, 
+	incremental_transportation DOUBLE, 
+	production_lead_time DOUBLE, 
+	offset_stock DOUBLE
+)

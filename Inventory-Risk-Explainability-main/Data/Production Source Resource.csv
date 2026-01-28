@@ -1,0 +1,10 @@
+Resource ID*,Source ID*,Capacity Consumption Rate,Capacity Consumption Rate Time S,End Period of Capacity Consumpti,Fixed Production CapaConsumption,Is Alt Resource,Mandatory Attribute for Producti,Start Period of Capacity Consump
+RES-400-001,PL1000_FG400_001_PV1,1,,,,,,
+RES100-001_001,PL1000_FG100-001_PV1,0.5,,,,,,
+RES100-001_001,PL2000_FG100-001_PV1,0.5,,,,,,
+RES100-001_002,PL1000_FG100-001_PV1,0.25,,,,,,
+RES100-001_002,PL2000_FG100-001_PV1,0.25,,,,,,
+RES200-001_001,PL1000_FG200-001_PV1,0.5,,,,,,
+RES200-001_001,PL2000_FG200-001_PV1,0.5,,,,,,
+RES200-001_002,PL1000_FG200-001_PV1,0.25,,,,,,
+RES200-001_002,PL2000_FG200-001_PV1,0.25,,,,,,

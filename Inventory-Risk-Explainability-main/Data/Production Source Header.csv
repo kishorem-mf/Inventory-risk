@@ -1,0 +1,8 @@
+Location ID*,Product ID*,Source ID*,Capacity Consumption Policy,IO Production Frozen Window,Lead Time (Production),Lead Time CV (Production),MandatoryAttribute Source Produc,Maximum Production Lot Size,Minimum Production Lot Size,Output Product Coefficient,Production Calendar ID,Production Delivery Type Ind,Production Freeze Horizon (Days),Production Goods Receipt Time,Production GoodsReceipt Calendar,Production Incremental Lot Size,Production Lead Time,Production Lead Time CV,Production Lot Size Periods,Production Lot Size: Coverage of,Production Ratio,Production Rounding Value,Production Shipment Frequency,Production Source Balance Receip,Production Source Invalid,Production Source Type Indicator,Remaining Shelf Life,Threshold Value for LT Rounding,TS Output Coefficient Ind,TS Production Sourcing Ind
+PL1000,FG-100-001,PL1000_FG100-001_PV1,,,,,,,,1,,,,,,,1,,,,1,,,,,P,,,,
+PL1000,FG-200-001,PL1000_FG200-001_PV1,,,,,,,,1,,,,,,,6,,,,1,,,,,P,,,,
+PL1000,FG-400-001,PL1000_FG400_001_PV1,,,,,,,,1,,,,,,,6,,,,1,,,,,P,,,,
+PL1000,SFG-100-001,PL1000_SFG100-001_PV1,,,,,,,,1,,,,,,,0,,,,1,,,,,P,,,,
+PL2000,FG-100-001,PL2000_FG100-001_PV1,,,,,,,,1,,,,,,,1,,,,1,,,,,P,,,,
+PL2000,FG-200-001,PL2000_FG200-001_PV1,,,,,,,,1,,,,,,,6,,,,1,,,,,P,,,,
+PL2000,SFG-100-001,PL2000_SFG100-001_PV1,,,,,,,,1,,,,,,,0,,,,1,,,,,P,,,,

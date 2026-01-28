@@ -1,0 +1,29 @@
+Flask-Cors==6.0.1
+Flask==3.1.1
+generative-ai-hub-sdk>=4.4.3
+#google-cloud-aiplatform==1.61.0
+kaleido==0.2.1
+langchain==0.3.26
+langchain-aws==0.2.9
+langchain-community==0.3.27
+langchain-core==0.3.68
+langchain-experimental==0.3.4
+langchain-google-vertexai==2.0.1
+langchain-openai==0.3.27
+pandas==2.3.1
+plotly==5.24.1
+pydantic>=2.9.0
+pydantic-settings>=2.10.1
+pydantic_core>=2.23.2
+sqlalchemy-hana==3.0.3
+tabulate==0.9.0
+langgraph==0.5.2
+langgraph-checkpoint==2.1.0
+langgraph-prebuilt==0.5.2
+langgraph-sdk==0.1.72
+langsmith==0.4.4
+aioboto3
+# Vertex AI client with async REST support
+google-cloud-aiplatform[async_rest]==1.103.0
+# (optional) pin aiohttp explicitly if your project has restrictions
+aiohttp>=3.9.5

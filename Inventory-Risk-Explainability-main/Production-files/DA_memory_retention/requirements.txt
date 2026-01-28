@@ -1,0 +1,24 @@
+gradio
+openai>=1.58.1
+google-cloud-aiplatform==1.83.0 # google
+boto3==1.37.0 # amazon
+aioboto3==14.1.0 # amazon
+langchain~=0.3.25
+generative-ai-hub-sdk
+langchain-community~=0.3.25
+langchain-openai>=0.3.7
+langchain-google-vertexai==2.0.15 # google
+langchain-aws==0.2.15 # amazon
+langgraph
+sqlalchemy-hana
+langgraph-supervisor
+langchain-tavily
+matplotlib
+Flask-Cors
+Flask
+gunicorn
+# fastapi
+# uvicorn[standard]
+# pydantic==2.9.2
+# pydantic-settings==2.5.2
+# pydantic_core==2.23.4

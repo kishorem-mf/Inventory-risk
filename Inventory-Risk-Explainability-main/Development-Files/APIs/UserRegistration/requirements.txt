@@ -1,0 +1,12 @@
+python-dotenv
+fastapi
+uvicorn
+httpx==0.27.2
+sse_starlette
+urllib3
+hdbcli
+cfenv
+requests
+pyjwt 
+bcrypt
+pydantic[email]
