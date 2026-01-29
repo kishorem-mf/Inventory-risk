@@ -1398,7 +1398,25 @@ delta_sharing_config = {
 
 ## 7. Phase 5: Model Serving & Integration
 
-### 7.1 Databricks Model Serving Endpoint
+> **Recommended Approach: Batch-Only Architecture**
+>
+> Since inventory data refreshes **weekly** (STOCK_STATUS_V2), real-time API serving adds unnecessary complexity. The recommended architecture is:
+>
+> ```
+> Nightly Batch Job (scoring)
+>     → Delta Table (ml_predictions)
+>     → Publish to SAP BDC (Derived Data Product)
+>     → Flask App reads from HANA/BDC table
+> ```
+>
+> This eliminates API endpoint costs, reduces latency concerns, and simplifies integration.
+
+### 7.1 Databricks Model Serving Endpoint (Optional - Future Use)
+
+> **Note**: This section is optional. For weekly data, batch scoring (Section 7.2) is sufficient. Real-time API is only needed if:
+> - Data changes intra-day (not applicable for weekly inventory)
+> - Users query new product-location combinations not in batch
+> - "What-if" simulations require live scoring
 
 ```python
 # File: notebooks/model_serving_setup.py
@@ -1435,7 +1453,9 @@ w.serving_endpoints.create(
 )
 ```
 
-### 7.2 API Contract
+### 7.2 API Contract (Optional - Future Use)
+
+> **Note**: Only relevant if real-time API endpoint (Section 7.1) is implemented.
 
 #### Request
 
@@ -1490,61 +1510,36 @@ Request Body:
 }
 ```
 
-### 7.3 SAP BTP Flask App Integration
+### 7.3 SAP BTP Flask App Integration (Batch Table Mode)
+
+> **Recommended**: Read pre-computed predictions from Delta table shared via SAP BDC. No API calls needed.
 
 ```python
 # File: Production-files/InventoryRiskMasterAgentAPI_production_v1/ml_integration.py
 
-import os
-import requests
+from sqlalchemy import text
 from functools import lru_cache
 
-DATABRICKS_HOST = os.getenv("DATABRICKS_HOST")
-DATABRICKS_TOKEN = os.getenv("DATABRICKS_TOKEN")
-DATABRICKS_ENDPOINT = f"https://{DATABRICKS_HOST}/serving-endpoints/inventory-risk-endpoint/invocations"
-
-# Alternative: Read from Delta table via SAP BDC
-HANA_ML_PREDICTIONS_TABLE = "CURRENT_INVT.ML_PREDICTIONS"
+# Predictions table shared from Databricks via SAP BDC
+ML_PREDICTIONS_TABLE = "CURRENT_INVT.ML_PREDICTIONS"
 
 
 class MLPredictionClient:
-    """Client for fetching ML predictions."""
+    """
+    Client for fetching ML predictions from batch-scored Delta table.
 
-    def __init__(self, mode="table"):
+    Architecture:
+        Databricks (nightly batch) → Delta Table → SAP BDC → HANA → Flask App
+    """
+
+    @lru_cache(maxsize=1000)
+    def get_prediction(self, engine, product_id, location_id):
         """
-        Args:
-            mode: "api" for real-time serving, "table" for batch predictions
+        Fetch pre-computed prediction from Delta table (via SAP BDC).
+
+        Predictions are refreshed nightly by the Databricks batch scoring job.
+        Results are cached for performance within the same session.
         """
-        self.mode = mode
-
-    def get_prediction_from_api(self, product_id, location_id, features):
-        """Real-time prediction via Databricks Model Serving."""
-
-        payload = {
-            "dataframe_records": [{
-                "product_id": product_id,
-                "location_id": location_id,
-                **features
-            }]
-        }
-
-        response = requests.post(
-            DATABRICKS_ENDPOINT,
-            headers={
-                "Authorization": f"Bearer {DATABRICKS_TOKEN}",
-                "Content-Type": "application/json"
-            },
-            json=payload,
-            timeout=5
-        )
-
-        if response.status_code == 200:
-            return response.json()["predictions"][0]
-        else:
-            raise Exception(f"ML API error: {response.status_code} - {response.text}")
-
-    def get_prediction_from_table(self, engine, product_id, location_id):
-        """Fetch pre-computed prediction from Delta table (via SAP BDC)."""
 
         query = f"""
         SELECT
@@ -1554,14 +1549,17 @@ class MLPredictionClient:
             top_factor_2, top_factor_2_impact,
             top_factor_3, top_factor_3_impact,
             prediction_timestamp
-        FROM {HANA_ML_PREDICTIONS_TABLE}
-        WHERE product_id = '{product_id}'
-          AND location_id = '{location_id}'
+        FROM {ML_PREDICTIONS_TABLE}
+        WHERE product_id = :product_id
+          AND location_id = :location_id
           AND prediction_date = CURRENT_DATE
         """
 
         with engine.connect() as conn:
-            result = conn.execute(text(query)).fetchone()
+            result = conn.execute(
+                text(query),
+                {"product_id": product_id, "location_id": location_id}
+            ).fetchone()
 
         if result:
             return {
@@ -1579,17 +1577,9 @@ class MLPredictionClient:
             }
         return None
 
-    def get_prediction(self, engine, product_id, location_id, features=None):
-        """Get prediction using configured mode."""
 
-        if self.mode == "api" and features:
-            return self.get_prediction_from_api(product_id, location_id, features)
-        else:
-            return self.get_prediction_from_table(engine, product_id, location_id)
-
-
-# Initialize client
-ml_client = MLPredictionClient(mode="table")  # Use batch predictions by default
+# Initialize client (singleton)
+ml_client = MLPredictionClient()
 ```
 
 ### 7.4 Enhanced Reasoning Agent Response
@@ -2100,3 +2090,4 @@ def test_ml_client_table_mode():
 | 1.4 | 2025-01-29 | Data Eng | Updated Section 11.3: Added comprehensive Data Engineering Task Checklist |
 | 1.5 | 2025-01-29 | Data Eng | Added Section 2.4: SAP BDC Prerequisites - BDC-managed Delta Sharing architecture, data flow diagram, prerequisites checklist |
 | 1.6 | 2025-01-29 | Data Eng | Updated Section 3.1: Clarified BDC auto-provisions Delta Sharing (no manual share creation) |
+| 1.7 | 2025-01-29 | Data Eng | Updated Section 7: Simplified to batch-only architecture - marked API endpoint as optional, removed API code from integration, added recommendation for batch table approach |
