@@ -141,15 +141,104 @@ The existing SAP BTP Flask application provides:
 | SAP BTP Flask | REST API / Delta table read | Consume predictions |
 | SAP Analytics Cloud | Data Product subscription | Dashboards |
 
+### 2.4 SAP BDC Prerequisites
+
+> **Critical**: Data engineering in SAP Databricks requires source datasets to be published as Data Products in SAP Datasphere and registered in SAP Business Data Cloud (BDC) before development can begin.
+
+#### 2.4.1 Architecture Principles
+
+| Principle | Description |
+|-----------|-------------|
+| **BDC as Central Catalog** | SAP BDC acts as the governance layer, automatically exposing Datasphere data products to Databricks |
+| **Auto-provisioned Delta Sharing** | No manual Delta Share creation required; share, recipient, security, and metadata are managed by BDC |
+| **Read-Only Source Access** | Published data products appear as read-only Delta tables in BDC-managed Unity Catalog namespace |
+| **Customer-Owned Derived Tables** | All transformations (feature engineering, ML prep) produce derived tables in customer-owned schemas |
+| **Publish-Back Requirement** | Derived datasets for enterprise reuse must be published back to BDC as derived data products |
+
+#### 2.4.2 Data Flow Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           SAP DATASPHERE                                         │
+│  ┌─────────────────────────────────────────────────────────────────────────┐   │
+│  │  Source Tables → Published as Data Products (with business metadata)     │   │
+│  │  • STOCK_STATUS_V2, REVIEW_DC_HISTORY, REVIEW_PLANT_HISTORY, etc.       │   │
+│  └─────────────────────────────────────────────────────────────────────────┘   │
+└────────────────────────────────────┬────────────────────────────────────────────┘
+                                     │ Publish
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                      SAP BUSINESS DATA CLOUD (BDC)                               │
+│  ┌─────────────────────────────────────────────────────────────────────────┐   │
+│  │  Central Catalog & Governance Layer                                      │   │
+│  │  • Auto-provisions Delta Sharing to Databricks                          │   │
+│  │  • Manages security, lineage, and metadata (ORD/CSN)                    │   │
+│  │  • No manual share/recipient configuration required                      │   │
+│  └─────────────────────────────────────────────────────────────────────────┘   │
+└────────────────────────────────────┬────────────────────────────────────────────┘
+                                     │ BDC-Managed Delta Sharing (automatic)
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           SAP DATABRICKS                                         │
+│  ┌─────────────────────────────────────────────────────────────────────────┐   │
+│  │  BDC-Managed Unity Catalog Namespace (READ-ONLY)                        │   │
+│  │  • sap_bdc.inventory_risk.stock_status_v2                               │   │
+│  │  • sap_bdc.inventory_risk.review_dc_history                             │   │
+│  │  • sap_bdc.inventory_risk.review_plant_history                          │   │
+│  └─────────────────────────────────────────────────────────────────────────┘   │
+│                                     │                                            │
+│                                     ▼ Transform                                  │
+│  ┌─────────────────────────────────────────────────────────────────────────┐   │
+│  │  Customer-Owned Unity Catalog Schema (READ-WRITE)                       │   │
+│  │  • inventory_risk_ml.ml_features (derived)                              │   │
+│  │  • inventory_risk_ml.ml_predictions (derived)                           │   │
+│  └─────────────────────────────────────────────────────────────────────────┘   │
+└────────────────────────────────────┬────────────────────────────────────────────┘
+                                     │ Publish as Derived Data Products
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                      SAP BUSINESS DATA CLOUD (BDC)                               │
+│  ┌─────────────────────────────────────────────────────────────────────────┐   │
+│  │  Derived Data Products (with ORD + CSN metadata)                        │   │
+│  │  • ml_predictions → Available to Datasphere, SAC, BTP apps              │   │
+│  │  • ml_features → Available for downstream ML consumers                  │   │
+│  └─────────────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 2.4.3 Prerequisites Checklist
+
+| # | Prerequisite | Owner | Status |
+|---|--------------|-------|--------|
+| 1 | Source tables published as Data Products in SAP Datasphere | Data Steward | 🔲 |
+| 2 | Data Products registered in SAP BDC with business metadata | Data Steward | 🔲 |
+| 3 | BDC-managed Unity Catalog namespace accessible in Databricks | Platform Admin | 🔲 |
+| 4 | Customer-owned schema created for derived tables (`inventory_risk_ml`) | Data Eng | 🔲 |
+| 5 | ORD/CSN metadata templates prepared for publish-back | Data Eng | 🔲 |
+
+#### 2.4.4 Key Terminology
+
+| Term | Definition |
+|------|------------|
+| **Data Product** | A governed, reusable dataset published with business and technical metadata |
+| **ORD Metadata** | Open Resource Discovery - business metadata (description, owner, tags) |
+| **CSN Metadata** | Core Schema Notation - technical schema definition |
+| **BDC-Managed Namespace** | Unity Catalog namespace automatically created by BDC for shared data products |
+| **Derived Data Product** | Dataset created in Databricks and published back to BDC for enterprise consumption |
+
 ---
 
 ## 3. Source Data Specification
 
 ### 3.1 Data Products from SAP BDC
 
-All source tables are accessed via Delta Sharing from SAP BDC catalog: `sap_bdc.inventory_risk`
+All source tables are accessed via **BDC-managed Delta Sharing** from catalog: `sap_bdc.inventory_risk`
 
-> **Note**: The current application uses SAP HANA with two schemas: `CURRENT_INVT` (master data, stock status) and `INVT_HISTORICAL_DATA` (review history tables). Delta Sharing will mirror these tables.
+> **Important - BDC-Managed Access**:
+> - Source tables are published as Data Products in SAP Datasphere
+> - SAP BDC automatically provisions Delta Sharing to Databricks (no manual share creation)
+> - Tables appear as read-only in BDC-managed Unity Catalog namespace
+> - The current application uses SAP HANA schemas (`CURRENT_INVT`, `INVT_HISTORICAL_DATA`); these are mirrored as Data Products in BDC
 
 #### 3.1.1 Schema Mapping
 
@@ -187,19 +276,22 @@ All source tables are accessed via Delta Sharing from SAP BDC catalog: `sap_bdc.
 
 ```python
 # Databricks notebook - Data Access
-# Master Data (from CURRENT_INVT)
+# NOTE: These tables are auto-provisioned by BDC - no manual Delta Share setup required
+# Tables are READ-ONLY in the BDC-managed Unity Catalog namespace
+
+# Master Data (from CURRENT_INVT → BDC Data Products)
 stock_status = spark.read.table("sap_bdc.inventory_risk.stock_status_v2")
 location_source = spark.read.table("sap_bdc.inventory_risk.location_source")
 production_source = spark.read.table("sap_bdc.inventory_risk.production_source_header")
 
-# Review History Tables (from INVT_HISTORICAL_DATA)
+# Review History Tables (from INVT_HISTORICAL_DATA → BDC Data Products)
 review_dc = spark.read.table("sap_bdc.inventory_risk.review_dc_history")
 review_plant = spark.read.table("sap_bdc.inventory_risk.review_plant_history")
 review_vendors = spark.read.table("sap_bdc.inventory_risk.review_vendors_history")
 review_capacity = spark.read.table("sap_bdc.inventory_risk.review_capacity_history")
 review_component = spark.read.table("sap_bdc.inventory_risk.review_component_history")
 
-# Analysis Tables (from INVT_HISTORICAL_DATA)
+# Analysis Tables (from INVT_HISTORICAL_DATA → BDC Data Products)
 demand_fulfillment = spark.read.table("sap_bdc.inventory_risk.demand_fulfillment_history")
 profit_margin = spark.read.table("sap_bdc.inventory_risk.profit_margin_history")
 cost = spark.read.table("sap_bdc.inventory_risk.cost")
@@ -2006,3 +2098,5 @@ def test_ml_client_table_mode():
 | 1.2 | 2025-01-29 | Data Eng | Updated Section 3: Corrected table names with _HISTORY suffix, added schema mapping (CURRENT_INVT, INVT_HISTORICAL_DATA), clarified lag columns are in STOCK_STATUS_V2 |
 | 1.3 | 2025-01-29 | Data Eng | Updated Section 4: Replaced 21 theoretical features with 22 code-aligned features from reasoning_agent_pipeline.py L1/L2 logic |
 | 1.4 | 2025-01-29 | Data Eng | Updated Section 11.3: Added comprehensive Data Engineering Task Checklist |
+| 1.5 | 2025-01-29 | Data Eng | Added Section 2.4: SAP BDC Prerequisites - BDC-managed Delta Sharing architecture, data flow diagram, prerequisites checklist |
+| 1.6 | 2025-01-29 | Data Eng | Updated Section 3.1: Clarified BDC auto-provisions Delta Sharing (no manual share creation) |

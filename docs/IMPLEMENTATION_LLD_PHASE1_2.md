@@ -42,71 +42,107 @@ This document provides implementation details for:
 
 ---
 
-## 2. Phase 1: Delta Share Provisioning
+## 2. Phase 1: BDC Data Product Validation & Access
 
-### 2.1 Source Table Inventory
+> **Important**: SAP BDC automatically provisions Delta Sharing when Data Products are published in Datasphere. No manual share creation is required.
 
-#### 2.1.1 Master Data Tables (from CURRENT_INVT)
+### 2.1 Prerequisites (Datasphere Side)
 
-| Table | Delta Share Name | Row Count | Update Freq | Purpose |
-|-------|-----------------|-----------|-------------|---------|
+Before Databricks development can begin, the following must be completed by the Data Steward team:
+
+| # | Prerequisite | Owner | Validation |
+|---|--------------|-------|------------|
+| 1 | Source tables published as Data Products in SAP Datasphere | Data Steward | Data Products visible in Datasphere catalog |
+| 2 | Data Products registered in SAP BDC with ORD metadata | Data Steward | Products appear in BDC catalog |
+| 3 | BDC auto-provisions Delta Sharing to Databricks | Platform (automatic) | Tables visible in Unity Catalog |
+
+### 2.2 Source Table Inventory
+
+#### 2.2.1 Master Data Tables (from CURRENT_INVT → BDC Data Products)
+
+| Table | BDC Data Product Name | Row Count | Update Freq | Purpose |
+|-------|----------------------|-----------|-------------|---------|
 | `STOCK_STATUS_V2` | `stock_status_v2` | ~500K | Weekly | Primary ML source |
 | `LOCATION_SOURCE` | `location_source` | ~10K | Static | Transportation lead times |
 | `PRODUCTION_SOURCE_HEADER` | `production_source_header` | ~5K | Static | Production lead times |
 | `PRODUCT` | `product` | ~5K | Static | Product master |
 | `LOCATION` | `location` | ~1K | Static | Location master |
 
-#### 2.1.2 Transactional Tables (from INVT_HISTORICAL_DATA)
+#### 2.2.2 Transactional Tables (from INVT_HISTORICAL_DATA → BDC Data Products)
 
-| Table | Delta Share Name | Row Count | Update Freq | Purpose |
-|-------|-----------------|-----------|-------------|---------|
+| Table | BDC Data Product Name | Row Count | Update Freq | Purpose |
+|-------|----------------------|-----------|-------------|---------|
 | `REVIEW_DC_HISTORY` | `review_dc_history` | ~200K | Weekly | DC metrics |
 | `REVIEW_PLANT_HISTORY` | `review_plant_history` | ~100K | Weekly | Plant metrics |
 | `REVIEW_VENDORS_HISTORY` | `review_vendors_history` | ~50K | Weekly | Vendor supply |
 | `REVIEW_CAPACITY_HISTORY` | `review_capacity_history` | ~30K | Weekly | Capacity metrics |
 | `REVIEW_COMPONENT_HISTORY` | `review_component_history` | ~80K | Weekly | Component inventory |
 
-### 2.2 Delta Share Configuration
+### 2.3 BDC-Managed Access (No Manual Configuration)
 
-#### 2.2.1 Share Definition
+#### 2.3.1 How BDC Auto-Provisioning Works
 
-```sql
--- Create share in SAP BDC
-CREATE SHARE inventory_risk_ml_source
-COMMENT 'Source tables for Inventory Risk ML pipeline';
-
--- Add tables to share
-ALTER SHARE inventory_risk_ml_source ADD TABLE sap_bdc.inventory_risk.stock_status_v2;
-ALTER SHARE inventory_risk_ml_source ADD TABLE sap_bdc.inventory_risk.location_source;
-ALTER SHARE inventory_risk_ml_source ADD TABLE sap_bdc.inventory_risk.production_source_header;
-ALTER SHARE inventory_risk_ml_source ADD TABLE sap_bdc.inventory_risk.review_dc_history;
-ALTER SHARE inventory_risk_ml_source ADD TABLE sap_bdc.inventory_risk.review_plant_history;
-ALTER SHARE inventory_risk_ml_source ADD TABLE sap_bdc.inventory_risk.review_vendors_history;
-ALTER SHARE inventory_risk_ml_source ADD TABLE sap_bdc.inventory_risk.review_capacity_history;
-
--- Grant access to Databricks recipient
-GRANT SELECT ON SHARE inventory_risk_ml_source TO RECIPIENT databricks_ml_workspace;
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  SAP DATASPHERE                                                              │
+│  Data Steward publishes tables as Data Products                             │
+└────────────────────────────────────┬────────────────────────────────────────┘
+                                     │ Automatic
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  SAP BDC                                                                     │
+│  • Registers Data Products in central catalog                               │
+│  • Auto-creates Delta Share with security policies                          │
+│  • Auto-configures recipient (Databricks workspace)                         │
+│  • Provisions Unity Catalog namespace: sap_bdc.inventory_risk               │
+└────────────────────────────────────┬────────────────────────────────────────┘
+                                     │ Automatic
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  SAP DATABRICKS                                                              │
+│  Tables appear as READ-ONLY in BDC-managed Unity Catalog                    │
+│  • sap_bdc.inventory_risk.stock_status_v2                                   │
+│  • sap_bdc.inventory_risk.review_dc_history                                 │
+│  • etc.                                                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### 2.2.2 Databricks Access Configuration
+#### 2.3.2 Databricks Access Validation
 
 ```python
-# File: notebooks/01_delta_share_setup.py
+# File: notebooks/01_validate_bdc_access.py
+# NOTE: No manual share creation needed - BDC auto-provisions access
 
-# Configure Delta Sharing credentials
-spark.conf.set("spark.databricks.delta.sharing.profile", "/dbfs/delta-sharing/sap-bdc-profile.json")
+def validate_bdc_access():
+    """Validate that BDC-managed Data Products are accessible."""
 
-# Create catalog reference
-spark.sql("""
-    CREATE CATALOG IF NOT EXISTS sap_bdc
-    USING SHARE `sap-bdc-provider`.inventory_risk_ml_source
-""")
+    # BDC-managed catalog should already exist
+    catalogs = spark.sql("SHOW CATALOGS").collect()
+    assert any(c["catalog"] == "sap_bdc" for c in catalogs), \
+        "ERROR: sap_bdc catalog not found. Verify BDC provisioning is complete."
 
-# Verify access
-spark.sql("SHOW TABLES IN sap_bdc.inventory_risk").show()
+    # Verify tables are accessible
+    tables = spark.sql("SHOW TABLES IN sap_bdc.inventory_risk").collect()
+    expected_tables = [
+        "stock_status_v2", "location_source", "production_source_header",
+        "review_dc_history", "review_plant_history", "review_vendors_history",
+        "review_capacity_history"
+    ]
+
+    available = [t["tableName"] for t in tables]
+    missing = set(expected_tables) - set(available)
+
+    if missing:
+        raise ValueError(f"Missing BDC Data Products: {missing}. Contact Data Steward.")
+
+    print(f"✅ BDC access validated. {len(available)} Data Products available.")
+    return True
+
+# Run validation
+validate_bdc_access()
 ```
 
-### 2.3 Table Access Code
+### 2.4 Table Access Code
 
 ```python
 # File: notebooks/02_data_access.py
@@ -453,6 +489,8 @@ PRIMARY_KEYS = ["product_id", "location_id", "year", "week_num"]
 
 ### 3.3 Feature Store Registration
 
+> **Important**: Derived tables (features, predictions) must be written to a **customer-owned schema**, not the BDC-managed namespace (which is read-only).
+
 ```python
 # File: notebooks/05_feature_store_setup.py
 
@@ -460,25 +498,117 @@ from databricks.feature_engineering import FeatureEngineeringClient
 
 fe = FeatureEngineeringClient()
 
-# Create feature table
+# IMPORTANT: Use customer-owned schema, NOT BDC-managed namespace
+# BDC namespace (sap_bdc.inventory_risk) is READ-ONLY
+CUSTOMER_CATALOG = "inventory_risk_ml"  # Customer-owned catalog
+CUSTOMER_SCHEMA = "features"
+
+# Create customer-owned catalog and schema (one-time setup)
+spark.sql(f"CREATE CATALOG IF NOT EXISTS {CUSTOMER_CATALOG}")
+spark.sql(f"CREATE SCHEMA IF NOT EXISTS {CUSTOMER_CATALOG}.{CUSTOMER_SCHEMA}")
+
+# Create feature table in customer-owned schema
 fe.create_table(
-    name="sap_bdc.inventory_risk.ml_features",
+    name=f"{CUSTOMER_CATALOG}.{CUSTOMER_SCHEMA}.ml_features",
     primary_keys=["product_id", "location_id", "year", "week_num"],
     timestamp_keys=["feature_timestamp"],
     description="Inventory risk ML features aligned with reasoning_agent_pipeline.py L1/L2 logic",
     tags={
         "team": "data-engineering",
         "domain": "supply-chain",
-        "source": "reasoning_agent_pipeline.py"
+        "source": "reasoning_agent_pipeline.py",
+        "publish_to_bdc": "true"  # Mark for BDC publish-back
     }
 )
 
 # Write features
 fe.write_table(
-    name="sap_bdc.inventory_risk.ml_features",
+    name=f"{CUSTOMER_CATALOG}.{CUSTOMER_SCHEMA}.ml_features",
     df=features_df.withColumn("feature_timestamp", F.current_timestamp()),
     mode="merge"
 )
+```
+
+### 3.4 Publish Derived Data Products to BDC
+
+Derived tables intended for enterprise consumption must be published back to SAP BDC as Derived Data Products.
+
+#### 3.4.1 Publish-Back Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  SAP DATABRICKS (Customer-Owned Schema)                                      │
+│  inventory_risk_ml.features.ml_features                                      │
+│  inventory_risk_ml.predictions.ml_predictions                                │
+└────────────────────────────────────┬────────────────────────────────────────┘
+                                     │ Publish as Derived Data Products
+                                     │ (with ORD + CSN metadata)
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  SAP BDC (Derived Data Products)                                             │
+│  • ml_features → Available for downstream ML pipelines                      │
+│  • ml_predictions → Available to Datasphere, SAC, BTP apps                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 3.4.2 Metadata Requirements for Publish-Back
+
+| Metadata Type | Description | Required Fields |
+|---------------|-------------|-----------------|
+| **ORD (Business)** | Open Resource Discovery | title, description, owner, tags, lineage |
+| **CSN (Technical)** | Core Schema Notation | column definitions, types, constraints |
+
+#### 3.4.3 Publish-Back Code
+
+```python
+# File: notebooks/08_publish_to_bdc.py
+# Publish derived tables back to BDC as Data Products
+
+def prepare_ord_metadata(table_name, description, owner):
+    """Prepare ORD (business) metadata for BDC publish."""
+    return {
+        "title": table_name,
+        "description": description,
+        "owner": owner,
+        "tags": ["ml", "inventory-risk", "derived"],
+        "lineage": {
+            "sources": ["sap_bdc.inventory_risk.stock_status_v2"],
+            "transformations": ["feature_engineering", "ml_scoring"]
+        }
+    }
+
+def prepare_csn_metadata(df):
+    """Prepare CSN (technical) metadata from DataFrame schema."""
+    return {
+        "columns": [
+            {"name": f.name, "type": str(f.dataType), "nullable": f.nullable}
+            for f in df.schema.fields
+        ]
+    }
+
+# Example: Publish ml_features
+ml_features_df = spark.read.table("inventory_risk_ml.features.ml_features")
+
+ord_metadata = prepare_ord_metadata(
+    table_name="ml_features",
+    description="ML features for inventory risk prediction, aligned with reasoning_agent_pipeline.py",
+    owner="data-engineering-team"
+)
+
+csn_metadata = prepare_csn_metadata(ml_features_df)
+
+# NOTE: Actual BDC publish API call depends on SAP BDC SDK/API
+# This is a placeholder for the publish operation
+# bdc_client.publish_data_product(
+#     source_table="inventory_risk_ml.features.ml_features",
+#     target_namespace="sap_bdc.inventory_risk_derived",
+#     ord_metadata=ord_metadata,
+#     csn_metadata=csn_metadata
+# )
+
+print("✅ Prepared metadata for BDC publish-back")
+print(f"   ORD: {ord_metadata['title']}")
+print(f"   CSN: {len(csn_metadata['columns'])} columns")
 ```
 
 ---
@@ -617,17 +747,20 @@ def validate_l1_l2_alignment(features_df, stock_status_df):
 
 ## 5. Implementation Checklist
 
-### 5.1 Phase 1: Delta Share Provisioning
+### 5.1 Phase 1: BDC Data Product Validation (No Manual Share Creation)
+
+> **Note**: BDC auto-provisions Delta Sharing. These tasks validate access, not create shares.
 
 | # | Task | Owner | Status | Validation |
 |---|------|-------|--------|------------|
-| 1.1 | Create Delta Share in SAP BDC | Data Eng | 🔲 | Share visible in catalog |
-| 1.2 | Add source tables to share | Data Eng | 🔲 | All 7 tables added |
-| 1.3 | Configure Databricks recipient | Data Eng | 🔲 | Access granted |
-| 1.4 | Create catalog reference in Databricks | Data Eng | 🔲 | `SHOW TABLES` works |
+| 1.1 | Verify Data Products published in Datasphere | Data Steward | 🔲 | Products visible in Datasphere catalog |
+| 1.2 | Verify Data Products registered in BDC | Data Steward | 🔲 | Products appear in BDC catalog |
+| 1.3 | Validate BDC-managed catalog accessible in Databricks | Data Eng | 🔲 | `SHOW CATALOGS` shows `sap_bdc` |
+| 1.4 | Validate all 7 source tables accessible | Data Eng | 🔲 | `validate_bdc_access()` passes |
 | 1.5 | Run schema validation | Data Eng | 🔲 | All columns present |
 | 1.6 | Run data quality validation | Data Eng | 🔲 | No nulls in PKs |
 | 1.7 | Run freshness validation | Data Eng | 🔲 | Data < 7 days old |
+| 1.8 | Create customer-owned catalog for derived tables | Data Eng | 🔲 | `inventory_risk_ml` catalog exists |
 
 ### 5.2 Phase 2: Feature Engineering
 
@@ -642,14 +775,28 @@ def validate_l1_l2_alignment(features_df, stock_status_df):
 | 2.7 | Implement `validate_features()` | Data Eng | 🔲 | All ranges valid |
 | 2.8 | Run feature quality checks | Data Eng | 🔲 | 0 nulls, valid ranges |
 | 2.9 | Run L1/L2 alignment validation | Data Eng | 🔲 | ≥90% alignment |
-| 2.10 | Create Feature Store table | Data Eng | 🔲 | Table in catalog |
+| 2.10 | Create Feature Store table in customer-owned schema | Data Eng | 🔲 | Table in `inventory_risk_ml.features` |
 | 2.11 | Write features to Feature Store | Data Eng | 🔲 | ~500K rows written |
 
-### 5.3 Sign-Off Criteria
+### 5.3 Publish-Back to BDC (Derived Data Products)
+
+| # | Task | Owner | Status | Validation |
+|---|------|-------|--------|------------|
+| 3.1 | Prepare ORD metadata for `ml_features` | Data Eng | 🔲 | Metadata JSON created |
+| 3.2 | Prepare CSN metadata for `ml_features` | Data Eng | 🔲 | Schema definition created |
+| 3.3 | Publish `ml_features` to BDC | Data Eng | 🔲 | Product visible in BDC catalog |
+| 3.4 | Prepare ORD metadata for `ml_predictions` | Data Eng | 🔲 | Metadata JSON created |
+| 3.5 | Prepare CSN metadata for `ml_predictions` | Data Eng | 🔲 | Schema definition created |
+| 3.6 | Publish `ml_predictions` to BDC | Data Eng | 🔲 | Product visible in BDC catalog |
+| 3.7 | Validate Datasphere can consume derived products | Data Steward | 🔲 | Products accessible in Datasphere |
+
+### 5.4 Sign-Off Criteria
 
 | Criteria | Threshold | Status |
 |----------|-----------|--------|
-| All source tables accessible via Delta Share | 7/7 tables | 🔲 |
+| All source Data Products accessible in Databricks | 7/7 tables | 🔲 |
+| BDC-managed catalog (`sap_bdc`) visible | Yes | 🔲 |
+| Customer-owned catalog created | `inventory_risk_ml` exists | 🔲 |
 | Schema validation passes | 100% columns match | 🔲 |
 | Data freshness | < 7 days old | 🔲 |
 | Feature null rate | 0% | 🔲 |
@@ -657,6 +804,7 @@ def validate_l1_l2_alignment(features_df, stock_status_df):
 | L1/L2 alignment (understock) | ≥ 90% | 🔲 |
 | L1/L2 alignment (overstock) | ≥ 90% | 🔲 |
 | Feature Store table created | Yes | 🔲 |
+| Derived products published to BDC | 2/2 products | 🔲 |
 
 ---
 
@@ -665,3 +813,4 @@ def validate_l1_l2_alignment(features_df, stock_status_df):
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2025-01-29 | Data Eng | Initial implementation LLD for Phase 1 & 2 |
+| 1.1 | 2025-01-29 | Data Eng | Updated Phase 1 for BDC-managed Delta Sharing (no manual share creation), added publish-back section |
