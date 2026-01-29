@@ -149,21 +149,69 @@ The existing SAP BTP Flask application provides:
 
 All source tables are accessed via Delta Sharing from SAP BDC catalog: `sap_bdc.inventory_risk`
 
+> **Note**: The current application uses SAP HANA with two schemas: `CURRENT_INVT` (master data, stock status) and `INVT_HISTORICAL_DATA` (review history tables). Delta Sharing will mirror these tables.
+
+#### 3.1.1 Schema Mapping
+
+| HANA Schema | Table Type | Delta Sharing Catalog |
+|-------------|------------|----------------------|
+| `CURRENT_INVT` | Master data, Stock status | `sap_bdc.inventory_risk` |
+| `INVT_HISTORICAL_DATA` | Review history, Cost, Demand | `sap_bdc.inventory_risk` |
+
+#### 3.1.2 Master Data Tables
+
+| Table | HANA Schema | Description |
+|-------|-------------|-------------|
+| `PRODUCT` | CURRENT_INVT | Product catalog |
+| `LOCATION` | CURRENT_INVT | Supply chain nodes (PL/DC/RDC/VEN) |
+| `LOCATION_PRODUCT` | CURRENT_INVT | Product-location mapping with safety stock |
+| `LOCATION_SOURCE` | CURRENT_INVT | Transportation rules and lead times |
+| `PRODUCTION_SOURCE_HEADER` | CURRENT_INVT | Production configuration and lead times |
+| `PRODUCTION_SOURCE_ITEM` | CURRENT_INVT | Bill of Materials (BOM) components |
+| `PRODUCTION_SOURCE_RESOURCE` | CURRENT_INVT | Resource assignments |
+| `CUSTOMER_SOURCE` | INVT_HISTORICAL_DATA | Customer sourcing rules |
+
+#### 3.1.3 Transactional Tables
+
+| Table | HANA Schema | Description | Update Frequency |
+|-------|-------------|-------------|------------------|
+| `STOCK_STATUS_V2` | CURRENT_INVT | **Primary** - Stock levels, warnings, lag columns | Weekly |
+| `REVIEW_DC_HISTORY` | INVT_HISTORICAL_DATA | DC pivoted key figures | Weekly |
+| `REVIEW_PLANT_HISTORY` | INVT_HISTORICAL_DATA | Plant pivoted key figures | Weekly |
+| `REVIEW_VENDORS_HISTORY` | INVT_HISTORICAL_DATA | Vendor material flows | Weekly |
+| `REVIEW_CAPACITY_HISTORY` | INVT_HISTORICAL_DATA | Production capacity metrics | Weekly |
+| `REVIEW_COMPONENT_HISTORY` | INVT_HISTORICAL_DATA | Component inventory metrics | Weekly |
+| `DEMAND_FULFILLMENT_HISTORY` | INVT_HISTORICAL_DATA | Demand metrics | Weekly |
+| `PROFIT_MARGIN_HISTORY` | INVT_HISTORICAL_DATA | Profitability metrics | Weekly |
+| `COST` | INVT_HISTORICAL_DATA | Cost parameters | Weekly |
+
 ```python
 # Databricks notebook - Data Access
+# Master Data (from CURRENT_INVT)
 stock_status = spark.read.table("sap_bdc.inventory_risk.stock_status_v2")
-review_dc = spark.read.table("sap_bdc.inventory_risk.review_dc")
-review_plant = spark.read.table("sap_bdc.inventory_risk.review_plant")
-review_vendors = spark.read.table("sap_bdc.inventory_risk.review_vendors")
-lag_1_review_dc = spark.read.table("sap_bdc.inventory_risk.lag_1_review_dc")
-lag_1_review_plant = spark.read.table("sap_bdc.inventory_risk.lag_1_review_plant")
 location_source = spark.read.table("sap_bdc.inventory_risk.location_source")
 production_source = spark.read.table("sap_bdc.inventory_risk.production_source_header")
+
+# Review History Tables (from INVT_HISTORICAL_DATA)
+review_dc = spark.read.table("sap_bdc.inventory_risk.review_dc_history")
+review_plant = spark.read.table("sap_bdc.inventory_risk.review_plant_history")
+review_vendors = spark.read.table("sap_bdc.inventory_risk.review_vendors_history")
+review_capacity = spark.read.table("sap_bdc.inventory_risk.review_capacity_history")
+review_component = spark.read.table("sap_bdc.inventory_risk.review_component_history")
+
+# Analysis Tables (from INVT_HISTORICAL_DATA)
+demand_fulfillment = spark.read.table("sap_bdc.inventory_risk.demand_fulfillment_history")
+profit_margin = spark.read.table("sap_bdc.inventory_risk.profit_margin_history")
+cost = spark.read.table("sap_bdc.inventory_risk.cost")
 ```
 
-### 3.2 Primary Source: `stock_status_v2`
+### 3.2 Primary Source: `STOCK_STATUS_V2`
 
-This is the main table for ML training and scoring.
+This is the main table for ML training and scoring. Located in schema `CURRENT_INVT`.
+
+> **Important**: Lag values (previous week's data) are stored as **columns within this table**, not as separate lag tables. This eliminates the need for separate `lag_1_review_dc` or `lag_1_review_plant` tables.
+
+#### Core Columns
 
 | Column | Type | Description | ML Usage |
 |--------|------|-------------|----------|
@@ -179,18 +227,27 @@ This is the main table for ML training and scoring.
 | `outgoing_supply` | DOUBLE | Outbound shipments | Feature input |
 | `supply_orders` | DOUBLE | Open purchase/transport orders | Feature input |
 | `location_type` | STRING | PL/DC/RDC/VEN | Feature input |
-| `lag_1_dependent_demand` | DOUBLE | Previous week's demand | Feature input |
-| `lag_1_supply_orders` | DOUBLE | Previous week's supply orders | Feature input |
-| `lag_1_incoming_receipts` | DOUBLE | Previous week's receipts | Feature input |
 | `transportation_lead_time` | DOUBLE | Weeks for RDC→DC transport | Feature input |
 | `production_lead_time` | DOUBLE | Weeks for production | Feature input |
 | `offset_stock` | DOUBLE | projected_stock - safety_stock | Derived |
 | `stock_condition` | STRING | excess/deficit/in-stock | **Target (current)** |
 | `stock_status_warning` | STRING | normal/understock_instance_N/overstock_instance_N | **Target (label)** |
 
+#### Lag Columns (Embedded in STOCK_STATUS_V2)
+
+| Column | Type | Description | ML Usage |
+|--------|------|-------------|----------|
+| `lag_1_projected_stock` | DOUBLE | Previous week's projected stock | Feature input |
+| `lag_1_stock_on_hand` | DOUBLE | Previous week's stock on hand | Feature input |
+| `lag_1_dependent_demand` | DOUBLE | Previous week's demand | Feature input |
+| `lag_1_supply_orders` | DOUBLE | Previous week's supply orders | Feature input |
+| `lag_1_incoming_receipts` | DOUBLE | Previous week's receipts | Feature input |
+
 ### 3.3 Supporting Tables
 
-#### `review_dc` / `review_plant` (Pivoted Key Figures)
+All review tables are in schema `INVT_HISTORICAL_DATA` and use weekly bucket columns (e.g., `w30_2025`, `w31_2025`... `w29_2026`).
+
+#### `REVIEW_DC_HISTORY` / `REVIEW_PLANT_HISTORY` (Pivoted Key Figures)
 
 | Key Figure | Description |
 |------------|-------------|
@@ -203,7 +260,22 @@ This is the main table for ML training and scoring.
 | Inventory Target | Target stock level |
 | Projected Stock - Calculated | Expected stock |
 
-#### `location_source` (Transportation Rules)
+#### `REVIEW_VENDORS_HISTORY` (Vendor Material Flows)
+
+| Key Figure | Description |
+|------------|-------------|
+| Dependent Demand | Downstream demand from vendors |
+| Stock on Hand | Vendor inventory |
+| Outgoing Transport Supply | Outbound shipments to locations |
+
+#### `REVIEW_CAPACITY_HISTORY` / `REVIEW_COMPONENT_HISTORY`
+
+| Table | Description |
+|-------|-------------|
+| `REVIEW_CAPACITY_HISTORY` | Production capacity metrics by location |
+| `REVIEW_COMPONENT_HISTORY` | Component inventory levels for BOM |
+
+#### `LOCATION_SOURCE` (Transportation Rules) - Schema: `CURRENT_INVT`
 
 | Column | ML Usage |
 |--------|----------|
@@ -211,88 +283,140 @@ This is the main table for ML training and scoring.
 | `minimum_transportation_lot_size` | Supply constraint feature |
 | `incremental_transportation_lot_size` | Supply flexibility feature |
 
+#### `PRODUCTION_SOURCE_HEADER` (Production Config) - Schema: `CURRENT_INVT`
+
+| Column | ML Usage |
+|--------|----------|
+| `production_lead_time` | Production lead time feature |
+| `source_id` | Production source identifier |
+
 ### 3.4 Data Volume Estimates
+
+#### Source Tables (from SAP HANA)
+
+| Table | Schema | Rows (est.) | Update Frequency |
+|-------|--------|-------------|------------------|
+| `STOCK_STATUS_V2` | CURRENT_INVT | ~500K | Weekly |
+| `REVIEW_DC_HISTORY` | INVT_HISTORICAL_DATA | ~200K | Weekly |
+| `REVIEW_PLANT_HISTORY` | INVT_HISTORICAL_DATA | ~100K | Weekly |
+| `REVIEW_VENDORS_HISTORY` | INVT_HISTORICAL_DATA | ~50K | Weekly |
+| `REVIEW_CAPACITY_HISTORY` | INVT_HISTORICAL_DATA | ~30K | Weekly |
+| `REVIEW_COMPONENT_HISTORY` | INVT_HISTORICAL_DATA | ~80K | Weekly |
+| `LOCATION_SOURCE` | CURRENT_INVT | ~10K | Static |
+| `PRODUCTION_SOURCE_HEADER` | CURRENT_INVT | ~5K | Static |
+
+#### ML Output Tables (to Databricks)
 
 | Table | Rows (est.) | Update Frequency |
 |-------|-------------|------------------|
-| stock_status_v2 | ~500K | Weekly |
-| review_dc | ~200K | Weekly |
-| review_plant | ~100K | Weekly |
-| ml_features | ~500K | Daily |
-| ml_predictions | ~500K | Daily |
+| `ml_features` | ~500K | Daily |
+| `ml_predictions` | ~500K | Daily |
 
 ---
 
 ## 4. Phase 2: Feature Engineering
 
-### 4.1 Feature Catalog
+> **Design Principle**: Features are derived from the existing `reasoning_agent_pipeline.py` L1/L2 reasoning logic to ensure ML predictions align with current business rules.
 
-#### 4.1.1 Stock Features
+### 4.1 Feature Catalog (Code-Aligned)
 
-| Feature | Formula | Rationale |
-|---------|---------|-----------|
-| `stock_to_safety_ratio` | `projected_stock / safety_stock` | Core risk indicator; <1 = understock risk, >1.5 = overstock risk |
-| `stock_coverage_weeks` | `projected_stock / demand_rolling_mean_4w` | How many weeks of demand can current stock cover |
-| `offset_stock_pct` | `offset_stock / safety_stock` | Normalized deviation from safety stock |
-| `stock_velocity` | `(stock_t - stock_t-1) / stock_t-1` | Week-over-week stock change rate |
+#### 4.1.1 Core Risk Features (from STOCK_STATUS_V2)
 
-#### 4.1.2 Demand Features
+These features directly map to the current rule-based detection logic.
 
-| Feature | Formula | Rationale |
-|---------|---------|-----------|
-| `demand_rolling_mean_4w` | `AVG(total_demand) OVER 4 weeks` | Baseline demand level |
-| `demand_rolling_std_4w` | `STDDEV(total_demand) OVER 4 weeks` | Demand variability |
-| `demand_rolling_cv_4w` | `demand_rolling_std_4w / demand_rolling_mean_4w` | Coefficient of variation; high CV = unpredictable demand |
-| `demand_wow_change` | `(demand_t - demand_t-1) / demand_t-1` | Week-over-week demand change |
-| `demand_trend_4w` | `LINEAR_SLOPE(total_demand) OVER 4 weeks` | Demand trajectory (+ve = increasing) |
-| `demand_spike_flag` | `1 if demand > mean + 2*std else 0` | Binary flag for unusual demand |
+| Feature | Formula | Source Logic | L1/L2 Mapping |
+|---------|---------|--------------|---------------|
+| `stock_to_safety_ratio` | `projected_stock / safety_stock` | Core detection: <1 = deficit, >1 = excess | All L1 reasons |
+| `soh_to_safety_ratio` | `stock_on_hand / safety_stock` | Overstock L1: "High Stock on Hand at Start" | Overstock L1 |
+| `offset_stock` | `projected_stock - safety_stock` | Already in table, used for condition calc | All L1 reasons |
+| `consecutive_deficit_weeks` | Streak count where `stock_condition = 'deficit'` | 4+ weeks triggers understock_instance | Pattern detection |
+| `consecutive_excess_weeks` | Streak count where `stock_condition = 'excess'` | 4+ weeks triggers overstock_instance | Pattern detection |
 
-#### 4.1.3 Supply Features
+#### 4.1.2 Demand & Forecast Features (from STOCK_STATUS_V2)
 
-| Feature | Formula | Rationale |
-|---------|---------|-----------|
-| `supply_demand_ratio` | `incoming_receipts / total_demand` | Supply adequacy; <1 = potential shortage |
-| `supply_reliability_idx` | `actual_receipts / lag_1_supply_orders` | Supplier performance |
-| `supply_rolling_mean_4w` | `AVG(incoming_receipts) OVER 4 weeks` | Baseline supply level |
-| `supply_volatility` | `STDDEV(incoming_receipts) / AVG(incoming_receipts)` | Supply consistency |
-| `order_fulfillment_gap` | `supply_orders - incoming_receipts` | Unfulfilled orders |
+These features detect demand-related L1 reasons (overforecasting, underforecasting, demand spike).
 
-#### 4.1.4 Lead Time Features
+| Feature | Formula | Source Logic | L1/L2 Mapping |
+|---------|---------|--------------|---------------|
+| `forecast_accuracy_ratio` | `lag_1_dependent_demand / total_demand` | Overstock: >1 = overforecasting; Understock: <1 = underforecasting | Overstock L1, Understock L1 |
+| `demand_wow_change` | `(total_demand - lag_1_dependent_demand) / lag_1_dependent_demand` | Detects demand spike or drop | Understock L2: "Demand Spike" |
+| `demand_spike_flag` | `1 if total_demand > lag_1_dependent_demand * 1.5 else 0` | Binary flag for unusual demand increase | Understock L1 |
 
-| Feature | Formula | Rationale |
-|---------|---------|-----------|
-| `total_lead_time` | `transportation_lead_time + production_lead_time` | Total replenishment time |
-| `lead_time_coverage` | `projected_stock / (demand_rolling_mean_4w * total_lead_time)` | Can stock last through lead time? |
-| `lead_time_demand_exposure` | `demand_rolling_mean_4w * total_lead_time` | Demand during lead time window |
+#### 4.1.3 Supply Features (from STOCK_STATUS_V2)
 
-#### 4.1.5 Pattern Features
+These features detect supply-related L1 reasons (larger lot size, supplier delays, delayed POs).
 
-| Feature | Formula | Rationale |
-|---------|---------|-----------|
-| `consecutive_deficit_weeks` | Streak count where `stock_condition = 'deficit'` | Persistence of understock |
-| `consecutive_excess_weeks` | Streak count where `stock_condition = 'excess'` | Persistence of overstock |
-| `weeks_since_last_normal` | Count since last `stock_condition = 'in-stock'` | Duration of abnormal state |
-| `risk_trend_direction` | `+1` if worsening, `-1` if improving, `0` if stable | Risk trajectory |
+| Feature | Formula | Source Logic | L1/L2 Mapping |
+|---------|---------|--------------|---------------|
+| `receipts_to_demand_ratio` | `incoming_receipts / total_demand` | Overstock L1: >1 = "Larger Lot Size" | Overstock L1 |
+| `zero_receipt_weeks_flag` | `1 if incoming_receipts == 0 else 0` | Understock L1: "Longer Lead Time" (no receipts during instance) | Understock L1 |
+| `supply_order_change` | `lag_1_supply_orders - supply_orders` | Understock L1: >0 = "Delayed Purchase Orders" (orders pushed ahead) | Understock L1 |
+| `supply_reliability_idx` | `incoming_receipts / lag_1_supply_orders` | Measures if planned supply arrived | Understock L1 |
 
-#### 4.1.6 Location Features
+#### 4.1.4 Lead Time Features (from STOCK_STATUS_V2 + LOCATION_SOURCE)
 
-| Feature | Formula | Rationale |
-|---------|---------|-----------|
-| `location_type_encoded` | One-hot: `is_dc`, `is_rdc`, `is_plant` | Location-specific behavior |
-| `location_avg_demand` | `AVG(demand) for location over 12 weeks` | Location demand profile |
-| `location_risk_history` | Count of past warning instances at location | Historical risk pattern |
+These features detect lead time-related L2 reasons.
+
+| Feature | Formula | Source Logic | L1/L2 Mapping |
+|---------|---------|--------------|---------------|
+| `total_lead_time` | `transportation_lead_time + production_lead_time` | BOM tracing sums these for pre-adjustment | Understock L2, Overstock L2 |
+| `long_transport_lead_flag` | `1 if transportation_lead_time > 3 else 0` | Understock L2: "Longer Transportation Lead Time" | Understock L2 |
+| `long_production_lead_flag` | `1 if production_lead_time > 3 else 0` | Understock L2: "Longer Production Lead Time" | Understock L2 |
+
+#### 4.1.5 Capacity Features (from REVIEW_CAPACITY_HISTORY)
+
+These features detect production-related L1/L2 reasons (production delays, resource unavailable).
+
+| Feature | Formula | Source Logic | L1/L2 Mapping |
+|---------|---------|--------------|---------------|
+| `zero_capacity_weeks` | Count of weeks where `capacity_usage == 0` | Understock L1: "Production Delays" (4+ weeks) | Understock L1 |
+| `capacity_utilization_avg` | `AVG(capacity_usage) OVER 4 weeks` | Low utilization indicates production issues | Understock L2 |
+
+#### 4.1.6 Vendor Features (from REVIEW_VENDORS_HISTORY)
+
+These features detect vendor-related L1 reasons (supplier delays, vendor capacity constraints).
+
+| Feature | Formula | Source Logic | L1/L2 Mapping |
+|---------|---------|--------------|---------------|
+| `vendor_supply_flag` | `1 if vendor_max_external_receipt > 0 else 0` | Understock L1: 0 = "Supplier Delays" | Understock L1 |
+| `vendor_zero_supply_weeks` | Count of weeks where vendor supply = 0 | Sustained vendor issues | Understock L2 |
+
+#### 4.1.7 Location Features (from STOCK_STATUS_V2)
+
+| Feature | Formula | Source Logic | L1/L2 Mapping |
+|---------|---------|--------------|---------------|
+| `is_dc` | `1 if location_type == 'DC' else 0` | Location type affects which L1/L2 reasons apply | All |
+| `is_rdc` | `1 if location_type == 'RDC' else 0` | RDCs have transport but no production | All |
+| `is_plant` | `1 if location_type in ['PL', 'P'] else 0` | Plants have production-specific L1 reasons | Understock L1: Production |
+
+### 4.1.8 Feature Summary
+
+| Category | Count | Source Tables |
+|----------|-------|---------------|
+| Core Risk | 5 | STOCK_STATUS_V2 |
+| Demand/Forecast | 3 | STOCK_STATUS_V2 |
+| Supply | 4 | STOCK_STATUS_V2 |
+| Lead Time | 3 | STOCK_STATUS_V2, LOCATION_SOURCE |
+| Capacity | 2 | REVIEW_CAPACITY_HISTORY |
+| Vendor | 2 | REVIEW_VENDORS_HISTORY |
+| Location | 3 | STOCK_STATUS_V2 |
+| **Total** | **22** | |
 
 ### 4.2 Feature Engineering Pipeline
 
 ```python
 # File: notebooks/feature_engineering.py
+# Features aligned with reasoning_agent_pipeline.py L1/L2 logic
 
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 from pyspark.sql.types import IntegerType, DoubleType
 
 def calculate_consecutive_weeks(df, condition_col, condition_value, output_col):
-    """Calculate streak of consecutive weeks meeting a condition."""
+    """
+    Calculate streak of consecutive weeks meeting a condition.
+    Maps to: 4+ weeks rule for understock/overstock detection.
+    """
     w = Window.partitionBy("product_id", "location_id").orderBy("year", "week_num")
 
     return df \
@@ -307,109 +431,124 @@ def calculate_consecutive_weeks(df, condition_col, condition_value, output_col):
         .drop("condition_met", "group_id")
 
 
-def generate_features(stock_status_df, location_source_df):
+def count_zero_weeks(df, col_name, output_col, window_size=4):
+    """Count weeks where a column is zero within a rolling window."""
+    w = Window.partitionBy("product_id", "location_id").orderBy("year", "week_num").rowsBetween(-(window_size-1), 0)
+    return df.withColumn(output_col,
+        F.sum(F.when(F.col(col_name) == 0, 1).otherwise(0)).over(w))
+
+
+def generate_features(stock_status_df, location_source_df, capacity_df=None, vendor_df=None):
     """
-    Generate ML features from stock_status_v2 and supporting tables.
+    Generate ML features aligned with reasoning_agent_pipeline.py L1/L2 logic.
 
     Args:
-        stock_status_df: spark DataFrame from stock_status_v2
-        location_source_df: spark DataFrame from location_source
+        stock_status_df: STOCK_STATUS_V2 from CURRENT_INVT
+        location_source_df: LOCATION_SOURCE from CURRENT_INVT
+        capacity_df: REVIEW_CAPACITY_HISTORY from INVT_HISTORICAL_DATA (optional)
+        vendor_df: REVIEW_VENDORS_HISTORY from INVT_HISTORICAL_DATA (optional)
 
     Returns:
-        spark DataFrame with all engineered features
+        spark DataFrame with code-aligned features
     """
 
     # Window specifications
     w = Window.partitionBy("product_id", "location_id").orderBy("year", "week_num")
-    w_4w = w.rowsBetween(-3, 0)  # Current week + 3 prior weeks
-    w_12w = w.rowsBetween(-11, 0)  # 12-week lookback
+    w_4w = w.rowsBetween(-3, 0)  # 4-week lookback (matches business rule)
 
-    # Join lead time data
+    # Join lead time data from LOCATION_SOURCE
     df = stock_status_df.join(
         location_source_df.select("location_id", "product_id", "transportation_lead_time"),
         on=["location_id", "product_id"],
         how="left"
     )
 
-    # ==================== STOCK FEATURES ====================
+    # ==================== CORE RISK FEATURES ====================
+    # Maps to: Basic risk detection logic
     df = df \
         .withColumn("stock_to_safety_ratio",
             F.when(F.col("safety_stock") > 0,
                    F.col("projected_stock") / F.col("safety_stock"))
-            .otherwise(F.lit(None))) \
-        .withColumn("offset_stock_pct",
+            .otherwise(F.lit(1.0))) \
+        .withColumn("soh_to_safety_ratio",
             F.when(F.col("safety_stock") > 0,
-                   F.col("offset_stock") / F.col("safety_stock"))
-            .otherwise(F.lit(None))) \
-        .withColumn("stock_velocity",
-            (F.col("projected_stock") - F.lag("projected_stock", 1).over(w)) /
-            F.lag("projected_stock", 1).over(w))
+                   F.col("stock_on_hand") / F.col("safety_stock"))
+            .otherwise(F.lit(1.0)))
+    # Note: offset_stock already exists in STOCK_STATUS_V2
 
-    # ==================== DEMAND FEATURES ====================
+    # ==================== DEMAND/FORECAST FEATURES ====================
+    # Maps to: Overstock L1 "Overforecasting", Understock L1 "Underforecasting"
     df = df \
-        .withColumn("demand_rolling_mean_4w", F.avg("total_demand").over(w_4w)) \
-        .withColumn("demand_rolling_std_4w", F.stddev("total_demand").over(w_4w)) \
-        .withColumn("demand_rolling_cv_4w",
-            F.when(F.col("demand_rolling_mean_4w") > 0,
-                   F.col("demand_rolling_std_4w") / F.col("demand_rolling_mean_4w"))
-            .otherwise(F.lit(0))) \
+        .withColumn("forecast_accuracy_ratio",
+            F.when(F.col("total_demand") > 0,
+                   F.col("lag_1_dependent_demand") / F.col("total_demand"))
+            .otherwise(F.lit(1.0))) \
         .withColumn("demand_wow_change",
-            F.when(F.lag("total_demand", 1).over(w) > 0,
-                   (F.col("total_demand") - F.lag("total_demand", 1).over(w)) /
-                   F.lag("total_demand", 1).over(w))
-            .otherwise(F.lit(0))) \
+            F.when(F.col("lag_1_dependent_demand") > 0,
+                   (F.col("total_demand") - F.col("lag_1_dependent_demand")) / F.col("lag_1_dependent_demand"))
+            .otherwise(F.lit(0.0))) \
         .withColumn("demand_spike_flag",
-            F.when(F.col("total_demand") >
-                   F.col("demand_rolling_mean_4w") + 2 * F.col("demand_rolling_std_4w"), 1)
+            F.when(F.col("total_demand") > F.col("lag_1_dependent_demand") * 1.5, 1)
             .otherwise(0))
 
-    # Stock coverage
-    df = df.withColumn("stock_coverage_weeks",
-        F.when(F.col("demand_rolling_mean_4w") > 0,
-               F.col("projected_stock") / F.col("demand_rolling_mean_4w"))
-        .otherwise(F.lit(None)))
-
     # ==================== SUPPLY FEATURES ====================
+    # Maps to: Overstock L1 "Larger Lot Size", Understock L1 "Delayed POs"
     df = df \
-        .withColumn("supply_demand_ratio",
+        .withColumn("receipts_to_demand_ratio",
             F.when(F.col("total_demand") > 0,
                    F.col("incoming_receipts") / F.col("total_demand"))
-            .otherwise(F.lit(None))) \
+            .otherwise(F.lit(1.0))) \
+        .withColumn("zero_receipt_weeks_flag",
+            F.when(F.col("incoming_receipts") == 0, 1).otherwise(0)) \
+        .withColumn("supply_order_change",
+            F.col("lag_1_supply_orders") - F.col("supply_orders")) \
         .withColumn("supply_reliability_idx",
             F.when(F.col("lag_1_supply_orders") > 0,
                    F.col("incoming_receipts") / F.col("lag_1_supply_orders"))
-            .otherwise(F.lit(1.0))) \
-        .withColumn("supply_rolling_mean_4w", F.avg("incoming_receipts").over(w_4w)) \
-        .withColumn("order_fulfillment_gap",
-            F.col("supply_orders") - F.col("incoming_receipts"))
+            .otherwise(F.lit(1.0)))
 
     # ==================== LEAD TIME FEATURES ====================
+    # Maps to: Understock L2 "Longer Lead Time", Overstock L2 "Longer Lead Time"
     df = df \
         .withColumn("total_lead_time",
             F.coalesce(F.col("transportation_lead_time"), F.lit(0)) +
             F.coalesce(F.col("production_lead_time"), F.lit(0))) \
-        .withColumn("lead_time_coverage",
-            F.when((F.col("demand_rolling_mean_4w") > 0) & (F.col("total_lead_time") > 0),
-                   F.col("projected_stock") / (F.col("demand_rolling_mean_4w") * F.col("total_lead_time")))
-            .otherwise(F.lit(None))) \
-        .withColumn("lead_time_demand_exposure",
-            F.col("demand_rolling_mean_4w") * F.col("total_lead_time"))
+        .withColumn("long_transport_lead_flag",
+            F.when(F.col("transportation_lead_time") > 3, 1).otherwise(0)) \
+        .withColumn("long_production_lead_flag",
+            F.when(F.col("production_lead_time") > 3, 1).otherwise(0))
 
     # ==================== PATTERN FEATURES ====================
+    # Maps to: 4+ consecutive weeks rule for instance detection
     df = calculate_consecutive_weeks(df, "stock_condition", "deficit", "consecutive_deficit_weeks")
     df = calculate_consecutive_weeks(df, "stock_condition", "excess", "consecutive_excess_weeks")
 
     # ==================== LOCATION FEATURES ====================
+    # Maps to: Location-specific L1 reasons (plants have production logic)
     df = df \
         .withColumn("is_dc", F.when(F.col("location_type") == "DC", 1).otherwise(0)) \
         .withColumn("is_rdc", F.when(F.col("location_type") == "RDC", 1).otherwise(0)) \
         .withColumn("is_plant", F.when(F.col("location_type").isin(["PL", "P"]), 1).otherwise(0))
 
-    # Location historical demand
-    location_demand = df.groupBy("location_id").agg(
-        F.avg("total_demand").alias("location_avg_demand")
-    )
-    df = df.join(location_demand, on="location_id", how="left")
+    # ==================== CAPACITY FEATURES (if available) ====================
+    # Maps to: Understock L1 "Production Delays", L2 "Resource Capacity"
+    if capacity_df is not None:
+        capacity_agg = capacity_df.groupBy("product_id", "location_id", "year", "week_num").agg(
+            F.sum(F.when(F.col("capacity_usage") == 0, 1).otherwise(0)).alias("zero_capacity_weeks"),
+            F.avg("capacity_usage").alias("capacity_utilization_avg")
+        )
+        df = df.join(capacity_agg, on=["product_id", "location_id", "year", "week_num"], how="left")
+        df = df.fillna(0, subset=["zero_capacity_weeks", "capacity_utilization_avg"])
+
+    # ==================== VENDOR FEATURES (if available) ====================
+    # Maps to: Understock L1 "Supplier Delays", L2 "Vendor Capacity Constraints"
+    if vendor_df is not None:
+        vendor_agg = vendor_df.groupBy("product_id", "location_id", "year", "week_num").agg(
+            F.max(F.when(F.col("vendor_max_external_receipt") > 0, 1).otherwise(0)).alias("vendor_supply_flag"),
+            F.sum(F.when(F.col("vendor_max_external_receipt") == 0, 1).otherwise(0)).alias("vendor_zero_supply_weeks")
+        )
+        df = df.join(vendor_agg, on=["product_id", "location_id", "year", "week_num"], how="left")
+        df = df.fillna(0, subset=["vendor_supply_flag", "vendor_zero_supply_weeks"])
 
     # ==================== TARGET VARIABLE ====================
     df = df.withColumn("risk_label",
@@ -420,20 +559,33 @@ def generate_features(stock_status_df, location_source_df):
     return df
 
 
-# Feature columns for ML models
+# Feature columns for ML models (code-aligned)
 FEATURE_COLS = [
-    # Stock
-    "stock_to_safety_ratio", "stock_coverage_weeks", "offset_stock_pct", "stock_velocity",
-    # Demand
-    "demand_rolling_mean_4w", "demand_rolling_cv_4w", "demand_wow_change", "demand_spike_flag",
-    # Supply
-    "supply_demand_ratio", "supply_reliability_idx", "supply_rolling_mean_4w", "order_fulfillment_gap",
-    # Lead Time
-    "total_lead_time", "lead_time_coverage", "lead_time_demand_exposure",
-    # Pattern
+    # Core Risk (5)
+    "stock_to_safety_ratio", "soh_to_safety_ratio", "offset_stock",
     "consecutive_deficit_weeks", "consecutive_excess_weeks",
-    # Location
-    "is_dc", "is_rdc", "is_plant", "location_avg_demand"
+    # Demand/Forecast (3)
+    "forecast_accuracy_ratio", "demand_wow_change", "demand_spike_flag",
+    # Supply (4)
+    "receipts_to_demand_ratio", "zero_receipt_weeks_flag", "supply_order_change", "supply_reliability_idx",
+    # Lead Time (3)
+    "total_lead_time", "long_transport_lead_flag", "long_production_lead_flag",
+    # Capacity (2) - optional
+    "zero_capacity_weeks", "capacity_utilization_avg",
+    # Vendor (2) - optional
+    "vendor_supply_flag", "vendor_zero_supply_weeks",
+    # Location (3)
+    "is_dc", "is_rdc", "is_plant"
+]
+
+# Core features (always available from STOCK_STATUS_V2)
+CORE_FEATURE_COLS = [
+    "stock_to_safety_ratio", "soh_to_safety_ratio", "offset_stock",
+    "consecutive_deficit_weeks", "consecutive_excess_weeks",
+    "forecast_accuracy_ratio", "demand_wow_change", "demand_spike_flag",
+    "receipts_to_demand_ratio", "zero_receipt_weeks_flag", "supply_order_change", "supply_reliability_idx",
+    "total_lead_time", "long_transport_lead_flag", "long_production_lead_flag",
+    "is_dc", "is_rdc", "is_plant"
 ]
 
 PRIMARY_KEYS = ["product_id", "location_id", "year", "week_num"]
@@ -1755,27 +1907,85 @@ def test_ml_client_table_mode():
 }
 ```
 
-### 11.3 Verification Checklist
+### 11.3 Data Engineering Task Checklist
+
+#### Phase 1: Data Layer (✅ Complete)
+| # | Task | Owner | Status |
+|---|------|-------|--------|
+| 1.1 | Configure Delta Sharing from SAP BDC | Data Eng | ✅ |
+| 1.2 | Validate access to `sap_bdc.inventory_risk` catalog | Data Eng | ✅ |
+| 1.3 | Test connectivity to HANA schemas | Data Eng | ✅ |
+
+#### Phase 2: Feature Engineering Infrastructure
+| # | Task | Owner | Status |
+|---|------|-------|--------|
+| 2.1 | Create `feature_engineering.py` notebook | Data Eng | 🔲 |
+| 2.2 | Implement `calculate_consecutive_weeks()` function | Data Eng | 🔲 |
+| 2.3 | Implement `generate_features()` with 22 code-aligned features | Data Eng | 🔲 |
+| 2.4 | Join LOCATION_SOURCE for lead times | Data Eng | 🔲 |
+| 2.5 | Join REVIEW_CAPACITY_HISTORY for capacity features | Data Eng | 🔲 |
+| 2.6 | Join REVIEW_VENDORS_HISTORY for vendor features | Data Eng | 🔲 |
+| 2.7 | Implement feature validation rules | Data Eng | 🔲 |
+| 2.8 | Create Feature Store table `ml_features` | Data Eng | 🔲 |
+| 2.9 | Configure merge/upsert mode for incremental updates | Data Eng | 🔲 |
+
+#### Phase 4: Write-Back Infrastructure
+| # | Task | Owner | Status |
+|---|------|-------|--------|
+| 4.1 | Create `ml_predictions` Delta table (Section 6.1 schema) | Data Eng | 🔲 |
+| 4.2 | Configure partitioning by `prediction_date` | Data Eng | 🔲 |
+| 4.3 | Enable autoOptimize and autoCompact | Data Eng | 🔲 |
+| 4.4 | Set up Change Data Feed (CDF) for incremental sync | Data Eng | 🔲 |
+| 4.5 | Create Delta Sharing share `inventory_risk_ml` | Data Eng | 🔲 |
+| 4.6 | Add tables to share with recipients configured | Data Eng | 🔲 |
+
+#### Phase 5: Batch Scoring Pipeline
+| # | Task | Owner | Status |
+|---|------|-------|--------|
+| 5.1 | Create `batch_scoring.py` notebook | Data Eng | 🔲 |
+| 5.2 | Implement model loading from MLflow registry | Data Eng | 🔲 |
+| 5.3 | Create Spark UDFs for scoring | Data Eng | 🔲 |
+| 5.4 | Write predictions to Delta with `replaceWhere` | Data Eng | 🔲 |
+
+#### Phase 6: MLOps & Orchestration
+| # | Task | Owner | Status |
+|---|------|-------|--------|
+| 6.1 | Create daily workflow `inventory_risk_ml_daily` | MLOps | 🔲 |
+| 6.2 | Configure feature_engineering task (3:00 AM UTC) | MLOps | 🔲 |
+| 6.3 | Configure batch_scoring task (depends on features) | MLOps | 🔲 |
+| 6.4 | Configure data_quality_check task | MLOps | 🔲 |
+| 6.5 | Create weekly workflow `inventory_risk_ml_weekly_retrain` | MLOps | 🔲 |
+| 6.6 | Configure email notifications on failure | MLOps | 🔲 |
+
+#### Phase 7: Monitoring & Quality
+| # | Task | Owner | Status |
+|---|------|-------|--------|
+| 7.1 | Create `data_quality_check.py` notebook | Data Eng | 🔲 |
+| 7.2 | Implement null/invalid prediction checks | Data Eng | 🔲 |
+| 7.3 | Implement class concentration check (<80%) | Data Eng | 🔲 |
+| 7.4 | Set up model performance tracking | Data Eng | 🔲 |
+| 7.5 | Configure alerting thresholds | MLOps | 🔲 |
+
+#### Phase 8: Testing
+| # | Task | Owner | Status |
+|---|------|-------|--------|
+| 8.1 | Create unit tests for feature functions | QA | 🔲 |
+| 8.2 | Create integration tests for pipeline | QA | 🔲 |
+| 8.3 | Validate prediction schema compliance | QA | 🔲 |
+
+### 11.4 ML Engineering Verification Checklist
 
 | # | Checkpoint | Owner | Status |
 |---|------------|-------|--------|
-| 1 | Delta Sharing from SAP BDC working | Data Eng | ✅ |
-| 2 | Feature engineering notebook validated | ML Eng | 🔲 |
-| 3 | Feature store table created | ML Eng | 🔲 |
-| 4 | XGBoost F1 ≥ 0.70 on holdout | ML Eng | 🔲 |
-| 5 | LSTM accuracy ≥ 70% | ML Eng | 🔲 |
-| 6 | Severity MAE ≤ 15 | ML Eng | 🔲 |
-| 7 | Predictions table schema validated | Data Eng | 🔲 |
-| 8 | Delta Sharing write-back configured | Data Eng | 🔲 |
-| 9 | Model serving endpoint live | ML Eng | 🔲 |
-| 10 | Endpoint latency < 500ms | ML Eng | 🔲 |
-| 11 | SAP BTP integration tested | App Dev | 🔲 |
-| 12 | Daily workflow running | MLOps | 🔲 |
-| 13 | Weekly retrain workflow running | MLOps | 🔲 |
-| 14 | Monitoring dashboards created | MLOps | 🔲 |
-| 15 | Alerting configured | MLOps | 🔲 |
+| 1 | Feature engineering notebook validated | ML Eng | 🔲 |
+| 2 | XGBoost F1 ≥ 0.70 on holdout | ML Eng | 🔲 |
+| 3 | LSTM accuracy ≥ 70% | ML Eng | 🔲 |
+| 4 | Severity MAE ≤ 15 | ML Eng | 🔲 |
+| 5 | Model serving endpoint live | ML Eng | 🔲 |
+| 6 | Endpoint latency < 500ms | ML Eng | 🔲 |
+| 7 | SAP BTP integration tested | App Dev | 🔲 |
 
-### 11.4 Rollback Procedure
+### 11.5 Rollback Procedure
 
 1. **Model Rollback**: In MLflow, transition previous version to "Production"
 2. **Predictions Rollback**: Restore previous partition from Delta time travel
@@ -1793,3 +2003,6 @@ def test_ml_client_table_mode():
 |---------|------|--------|---------|
 | 1.0 | 2025-01-15 | ML Team | Initial draft |
 | 1.1 | 2025-01-28 | ML Team | Added source data specs, SHAP module, integration details |
+| 1.2 | 2025-01-29 | Data Eng | Updated Section 3: Corrected table names with _HISTORY suffix, added schema mapping (CURRENT_INVT, INVT_HISTORICAL_DATA), clarified lag columns are in STOCK_STATUS_V2 |
+| 1.3 | 2025-01-29 | Data Eng | Updated Section 4: Replaced 21 theoretical features with 22 code-aligned features from reasoning_agent_pipeline.py L1/L2 logic |
+| 1.4 | 2025-01-29 | Data Eng | Updated Section 11.3: Added comprehensive Data Engineering Task Checklist |
